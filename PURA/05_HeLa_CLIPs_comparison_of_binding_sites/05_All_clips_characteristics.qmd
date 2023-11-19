@@ -1,0 +1,150 @@
+---
+title: "Plot gene type and region for all data sets and overlap"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("/Users/melinaklostermann/Documents/projects/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+
+
+
+```{r libraries, include=FALSE}
+
+library(tidyverse)
+library(GenomicFeatures)
+
+
+out <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/05_HeLa_CLIPs_comparison_of_binding_sites/"
+```
+
+# What was done in this report?
+
+This is an comparison of the bound gene types and bound regions between the different PURA CLIP data sets.
+
+# Input
+```{r}
+
+# binding sites
+endo <-  readRDS("/Users/melinaklostermann/Documents/projects/PURA/Molitor-et-al-2022/binding_sites_characterized.rds") %>% makeGRangesFromDataFrame(keep.extra.columns = T)
+
+oe <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/01_binding_site_definition_oePURA/bs_oe.rds")
+
+flag <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/02_binding_site_definition_flagPURA/bs_flag.rds")
+
+```
+
+# Overlap
+
+```{r}
+
+overlap <- subsetByOverlaps(endo, oe)
+overlap <- subsetByOverlaps(overlap, flag)
+
+```
+
+
+
+
+# Genetype
+
+```{r}
+gt <- as.data.frame(table(endo$gene_type))
+gt2 <- as.data.frame(table(oe$gene_type))
+gt3 <- as.data.frame(table(flag$gene_type))
+gt4 <- as.data.frame(table(overlap$gene_type))
+
+gt <- full_join(gt, gt2, by = "Var1") %>%
+  full_join(., gt3,  by = "Var1") %>%
+  full_join(., gt4,  by = "Var1")
+
+colnames(gt) <- c("gene_type", "endo", "oe", "flag", "overlap")
+
+gt$endo <- gt$endo / sum(gt$endo)
+gt$oe <- gt$oe / sum(gt$oe)
+gt$flag <- gt$flag / sum(gt$flag)
+gt$overlap <- gt$overlap / sum(gt$overlap)
+
+gt <- gt %>% reshape2::melt(.)
+
+ggplot(gt, aes(x = variable , fill = gene_type, y = value))+
+  geom_col()+
+  theme(legend.position = "none")
+
+ggsave(paste0(out, "gene_type_all.pdf"), width = 4, height = 6, units = "cm")
+
+```
+
+# Generegion
+
+```{r}
+gr <- as.data.frame(table(endo$region))
+gr2 <- as.data.frame(table(oe$type))
+gr3 <- as.data.frame(table(flag$type))
+gr4 <- as.data.frame(table(overlap$region))
+
+gr <- full_join(gr, gr2, by = "Var1") %>%
+  full_join(., gr3,  by = "Var1") %>%
+  full_join(., gr4,  by = "Var1")
+
+colnames(gr) <- c("gene_type", "endo", "oe", "flag", "overlap")
+
+gr$endo <- gr$endo / sum(gr$endo)
+gr$oe <- gr$oe / sum(gr$oe)
+gr$flag <- gr$flag / sum(gr$flag)
+gr$overlap <- gr$overlap / sum(gr$overlap)
+
+gr <- gr %>% reshape2::melt(.)
+
+gr <- gr %>% subset(., gene_type %in% c("five_prime_UTR", "three_prime_UTR", "CDS", "intron"))
+
+ggplot(gr, aes(x = gene_type , fill = variable , y = value))+
+  geom_col(position = "dodge")+
+  scale_fill_manual(values = c("#2AB7CA","#FE4A49", "#FED766", "blue"))
+
+
+ggsave(paste0(out, "gene_region_all.pdf"), width = 6, height = 7, units = "cm")
+
+```
+
+
