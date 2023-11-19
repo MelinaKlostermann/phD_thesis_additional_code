@@ -1,0 +1,357 @@
+---
+title: "Compare 3'UTR and CDS binding"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  pdf:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("/Users/melinaklostermann/Documents/projects/R_general_functions/theme_thesis.R")
+source("/Users/melinaklostermann/Documents/projects/R_general_functions/theme_paper.R")
+theme_set(theme_thesis())
+```
+
+
+```{r libraries, include=FALSE}
+library(GenomicRanges)
+library(rtracklayer)
+library(knitr)
+library(GenomicFeatures)
+library(dplyr)
+library(ggpubr)
+library(ComplexHeatmap)
+library(purrr)
+library(Gviz)
+library(BSgenome.Hsapiens.UCSC.hg38)
+
+
+
+report_color <- (pals::ocean.solar(15))
+
+outpath <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/03_comparison_of_3'UTR_and_CDS_binding/"
+
+```
+
+# What was done in this report?
+
+This report compares characteristics of PURA binding sites in the 3'UTR and the CDS. The following characteristics are tested:
+
+- The amount of crosslinks in binding sites vs the amount of crosslinks around binding sites (Signal to background).
+- The binding site strength
+- The regional distribution of binding sites in relation to the total number of binding sites per gene
+
+Then some example GVIZ tracks are ploted for both genes with 3'UTR and genes with CDS binding.
+
+
+
+```{r}
+# ------------
+# get files
+# ------------
+
+# endo BS
+BS <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/Molitor-et-al-2022/binding_sites_characterized.rds") %>% makeGRangesFromDataFrame(keep.extra.columns = T) 
+
+
+# bw endo
+bw_merges_endo <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/02-Comp-iCLIPs/XX-Combined_experiments/bw_path_list_PURA_all_iCLIPs.rds")
+
+rle_p <- rtracklayer::import( bw_merges_endo[[3]], as = "RleList")
+rle_m <- rtracklayer::import( bw_merges_endo[[4]], as = "RleList")
+
+bw <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/02-Comp-iCLIPs/XX-Combined_experiments/crosslink_list_PURA_all_iCLIPs.rds")
+
+
+################ load files ####################
+# filtered annotation
+load("/Users/melinaklostermann/Documents/projects/anno/GENCODEv31-p12/edited_anno_v31p12/gencode.v31.annotation_GL123_TL123NA_without_overlap.RData")
+anno_txdb <- makeTxDbFromGRanges(annotation)
+
+
+```
+
+# Compare signal to background
+
+```{r}
+####################
+# Compare signal to background ratio
+###################
+
+BS_large <- BS + 30
+BS_large_p <- BS_large[strand(BS_large) == "+"]
+BS_large_m <- BS_large[strand(BS_large) == "-"]
+
+regions <- c(BS_large_p$region, BS_large_m$region)
+
+cl_plus <- as.matrix(rle_p[BS_large_p]) 
+cl_minus <- as.matrix(rle_m[BS_large_m]) %>% .[,ncol(.):1]
+
+# combine 
+cl <- rbind(cl_plus, cl_minus) 
+
+cl_utr <- cl[regions == "three_prime_UTR", ] 
+cl_utr_s <- cl_utr %>% colSums()/ nrow(cl_utr)
+
+cl_cds <- cl[regions == "CDS", ]
+cl_cds_s <- cl_cds %>% colSums()/ nrow(cl_cds)
+
+df <- data.frame( pos = seq(-32:32), 
+                  UTR = cl_utr_s,
+                  CDS = cl_cds_s)
+
+df <-  reshape2::melt(df, id.vars = "pos")
+
+ggplot(df, aes(x = pos, y = value, color = variable))+
+  geom_line()
+
+```
+
+# Compare binding strength
+
+```{r}
+##################
+# Compare binding site strength
+#################
+
+# BS <- as.data.frame(BS) %>%
+#   mutate(strength_bin = cut(score, 
+#                             breaks=quantile(score, probs = seq(0, 1, by = 0.20)), 
+# labels=c("0-20","20-40","40-60","60-80","80-100")
+#                             ))
+# 
+# 
+# ggplot(BS, aes(x = strength_bin, fill = region))+
+#   geom_bar(position = "fill")
+
+
+
+BS_strongest_per_gene <- BS %>% 
+  as.data.frame(.) %>%
+  group_by(gene_id) %>%
+  arrange(desc(score)) %>%
+  dplyr::slice(1)
+
+ggplot(BS_strongest_per_gene, aes(x = region))+
+  geom_bar()+
+  theme_paper()
+
+ggsave(paste0(outpath, "region_strongest_BS_per_gene.pdf"), width = 6, height = 6, units = "cm")
+
+
+ggplot(BS_strongest_per_gene %>% subset(region %in% c("three_prime_UTR", "CDS")), aes(x = log10(score), color = region))+
+  stat_ecdf()+
+  coord_cartesian(xlim = c(0,2.5))+
+  theme_thesis()
+
+ggsave(paste0(outpath, "ecdf_utr_vs_cds.pdf"), width = 6, height = 6, units = "cm")
+
+
+ggplot(BS_strongest_per_gene %>% subset(region %in% c("three_prime_UTR", "CDS")), aes(x = log10(score), color = region))+
+  stat_ecdf()+
+  coord_cartesian(xlim = c(1.2,1.6), y = c(0.3,0.7))+
+  theme_thesis()
+
+ggsave(paste0(outpath, "ecdf_utr_vs_cds_zoom.pdf"), width = 6, height = 6, units = "cm")
+
+
+```
+
+# Make Venn of binding site region per gene
+
+```{r}
+BS_utr_genes <- BS[which(BS$region == "three_prime_UTR"),]$gene_id
+BS_cds_genes <- BS[which(BS$region == "CDS"),]$gene_id
+
+all <- unique(c(BS_utr_genes, BS_cds_genes))
+
+overlap_mat <- cbind(
+utr = all %in% BS_utr_genes,
+cds = all  %in% BS_cds_genes)
+
+fit <- eulerr::euler(overlap_mat)
+
+pdf(paste0(outpath, "overlap_cds_utr.pdf"))
+plot(fit,  quantities = TRUE)
+
+dev.off()
+
+
+
+```
+
+# Plot regions for genes with many binding sites
+
+```{r}
+###################
+# bound regions for genes with BS > 30
+###################
+
+n_BS_per_gene <- BS %>% 
+  as.data.frame() %>%
+  group_by(gene_id) %>%
+  summarize(n_BS = length(gene_id), .groups = "keep")
+  
+
+BS_endo_df_cut <- BS %>% 
+  as.data.frame() %>%
+  mutate( n_BS_1 = T, 
+          n_BS_5 = gene_id %in% n_BS_per_gene[n_BS_per_gene$n_BS >=5,]$gene_id,
+         n_BS_10 = gene_id %in% n_BS_per_gene[n_BS_per_gene$n_BS >=10,]$gene_id,
+         n_BS_20 = gene_id %in% n_BS_per_gene[n_BS_per_gene$n_BS >=20,]$gene_id,
+         n_BS_30 = gene_id %in% n_BS_per_gene[n_BS_per_gene$n_BS >=30,]$gene_id,
+         n_BS_50 = gene_id %in% n_BS_per_gene[n_BS_per_gene$n_BS >=50,]$gene_id)
+
+BS_endo_df_cut_gg <- reshape2::melt(BS_endo_df_cut, id.vars = colnames(BS_endo_df_cut)[1:35])
+BS_endo_df_cut_gg <- BS_endo_df_cut_gg[BS_endo_df_cut_gg$value==T,]                                       
+
+ggplot(BS_endo_df_cut_gg, aes(x =  region, fill =  region))+
+   geom_bar()+
+  # stat_count(aes(label=paste0(sprintf("%1.1f", ..count../sum(..count..)*100),
+  #                             "% \n", ..count..), y=0.5*max(..count..)), 
+  #            geom="text", colour="black", size=4, position=position_dodge(width=1)) +
+  #scale_fill_manual(values = wes_palette("GrandBudapest1"))+
+  theme_paper()+
+  facet_wrap(~variable, scales = "free_y")
+
+
+BS_endo_df_melt <- BS_endo_df_cut[,c("region", "n_BS_1", "n_BS_5", "n_BS_10", "n_BS_20", "n_BS_30", "n_BS_50")] %>%
+  reshape2::melt(id.vars = "region") 
+
+BS_endo_df_melt <- subset(BS_endo_df_melt, (value == T) & (region != "non_coding"))
+
+ggplot(BS_endo_df_melt, aes(x = variable, fill = region))  +
+  geom_bar(position = "fill")
+
+ggsave(paste0(outpath, "region_by_n_BS_per_gene.pdf"), width = 6, height = 6, units = "cm")
+
+table(BS_endo_df_melt$variable)
+
+```
+
+# Plot example genes
+
+
+```{r gviz, fig.width=15, fig.height=10, eval=FALSE}
+
+############ GVIZ function #################
+plotGviz <- function(GR, BS, i, w,  cl_plus, cl_minus, name, anno, color){
+  
+  # get chromosome amd range, make data frame
+  chr<- as.character(seqnames(GR[i]))
+  df <- GR[i,] %>% as.data.frame
+  range <- GRanges(seqnames=chr, strand=strand(GR[i]),  ranges=IRanges(start= start(GR[i])-w[1], end = end(GR[i])+w[2])) 
+  
+  # make track of crosslinks depending on which strand
+  # cl_2
+  if(df$strand=="+"){
+    cl_at_region <- subsetByOverlaps(cl_plus, range) %>% keepStandardChromosomes()
+    dTrack <-
+      DataTrack(
+        cl_at_region,
+        genome = gen,
+        name = "cl endo",
+        type = "histogram", cex.title=cex, cex.axis= cex.a, col.axis= "black", fontcolor = "black")
+  }else{
+    cl_at_region <- subsetByOverlaps(cl_minus, range) %>% keepStandardChromosomes()
+    dTrack <-
+      DataTrack(
+        cl_at_region,
+        genome = gen,
+        name = "cl_endo",
+        type = "histogram", cex.title=cex,  cex.axis= cex.a, col.axis= "black", fontcolor = "black")
+  }
+  
+
+  
+  BS_new_track <- GeneRegionTrack(BS, genome = gen, name="BS endo", cex.axis= cex.a,
+                                  fill="darkred", stacking="hide", rotation.title=0, cex.title=cex, background.title = "white", fontcolor = "black")
+  
+  
+  # track showing loaction
+  gtrack <- GenomeAxisTrack(cex.title= 2, add53 = T)
+  
+  # annotation track
+  anno_track <- GeneRegionTrack(anno, genome = gen, chromosome = chr,
+                                name = "anno", fill = color, cex.title=cex, cex.axis= cex.a, stacking = "squish", background.title = "transparent", fontcolor = "black")
+  
+  h_tracks <- list(dTrack, BS_new_track, anno_track, gtrack)
+  
+plotTracks(h_tracks,
+               from = start(range), to = end(range),
+               chromosome=chr, sizes =c(5,1,1.5, 1), 
+               main= paste(name, "-", chr, ":", start(range),"-", end(range)), cex.main = 1)
+  
+
+}
+
+################# settings ####################
+gen <- "hg38"
+cex <- 0.7
+cex.a <- 0.5
+
+
+
+############### run function -> make pdf of BS in both or only one condition ######################
+
+goi <- c( "YBX1", "SQSTM1") #"STARD7", "DCP1A", "KIF5B", "CTNNA1", "TIA1", "EIF3B","Il6ST", "CNOT1",
+
+goi_ranges <- annotation[(annotation$type == "gene") & (annotation$gene_name %in% goi) ]
+
+
+for(gr in 1:NROW(goi_ranges)){
+  print(goi_ranges[gr]$gene_name)
+  pdf(paste0(outpath, goi_ranges[gr]$gene_name, ".pdf" ))
+  plotGviz(GR = goi_ranges[gr] , i=1, w = c(0,0), cl_plus = bw$bw_endo[[1]], cl_minus = bw$bw_endo[[2]], 
+           name = goi_ranges[gr]$gene_name, anno = anno_txdb, BS = makeGRangesFromDataFrame(BS), color = "black" )
+  dev.off()
+}
+
+
+
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+
+```
+
+
+
