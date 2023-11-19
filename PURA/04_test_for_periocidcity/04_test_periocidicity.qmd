@@ -1,0 +1,198 @@
+---
+title: "Test for periocidicity in CLIP signal"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+     
+    fig-format: svg       
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("/Users/melinaklostermann/Documents/projects/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+
+```{r libraries, include=FALSE}
+library(GenomicRanges)
+library(rtracklayer)
+library(knitr)
+library(GenomicFeatures)
+library(dplyr)
+library(ggpubr)
+library(ComplexHeatmap)
+library(purrr)
+
+
+
+report_color <- (pals::ocean.solar(15))
+
+outpath <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/04_test_for_periocidcity/"
+
+```
+
+# What was done in this report?
+
+- Here I am checking for periocidicity of iCLIP crosslinks or binding sites around the start codon.
+- This is ploted as the z-score of crosslinks (+ the sum of crosslinks per position), 
+
+
+
+
+# Input
+
+```{r input}
+#setwd("")
+
+###############
+# Clip data
+###############
+# iCLIP 
+BS <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/Molitor-et-al-2022/binding_sites_characterized.rds") %>% makeGRangesFromDataFrame(keep.extra.columns = T)
+
+# bw endo
+cl_endo <- c(readRDS("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/02-Comp-iCLIPs/XX-Combined_experiments/crosslink_list_PURA_all_iCLIPs.rds")[[2]][[1]],
+             readRDS("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/02-Comp-iCLIPs/XX-Combined_experiments/crosslink_list_PURA_all_iCLIPs.rds")[[2]][[2]])
+
+bw_path_list <- readRDS(paste0("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/02-Comp-iCLIPs/XX-Combined_experiments/bw_path_list_PURA_all_iCLIPs.rds"))
+
+
+
+
+
+##################
+# annotations
+###################
+# gene annotation without duplicates
+#load("/Users/melinaklostermann/Documents/projects/anno/GENCODEv31-p12/edited_anno_v31p12/gencode.v31.annotation_GL123_TL123NA_without_overlap_genes.RData")
+
+# complete annotation filtered 
+anno <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/Molitor-et-al-2022/annotation.rds")
+
+
+```
+
+
+# Heatmap centered on start codon (to look for periocidicity)
+
+```{r}
+####################
+# Heatmap at startcodon
+####################
+
+# function to make heatmap at start codon
+
+start_cod_z_hmap <- function(hits, annotation, bw_plus_path, bw_minus_path, title, w, w_n){
+  
+    starts = annotation[annotation$type=="start_codon"]
+    bw_plus_rle = import.bw(bw_plus_path, as = "Rle")
+    bw_minus_rle = import.bw(bw_minus_path, as = "Rle")
+    
+    
+    starts = starts[starts$gene_id %in% hits$gene_id]
+    starts_p = starts[strand(starts)=="+"]
+    starts_m = starts[strand(starts)=="-"]
+    
+   start_window_plus = GRanges(seqnames = seqnames(starts_p ),
+                                 strand=strand(starts_p ),
+                                 ranges = IRanges(start = end(starts_p)- w_n - 1,
+                                                  end = end(starts_p)+ w))
+    
+    start_window_minus = GRanges(seqnames = seqnames( starts_m ),
+                                 strand= strand( starts_m ),
+                                 ranges = IRanges(start =  start(starts_m )- w,
+                                                  end =  start(starts_m )+ w_n + 1))
+    
+    
+    # get plus and minus crosslinks from an rle of the raw bigwig
+    cl_plus = as.matrix(bw_plus_rle[start_window_plus]) 
+    cl_minus = as.matrix(bw_minus_rle[start_window_minus]) %>% .[,ncol(.):1]
+    
+    # combine 
+    cl = rbind(cl_plus, cl_minus) 
+    
+    # z-norm per row
+    cl_means = apply(cl, MARGIN=1, mean)
+    cl_sd = apply(cl,1,sd)
+    cl_z = (cl - cl_means)/cl_sd
+    cl_z_clean = cl_z 
+    cl_z_clean[is.na(cl_z_clean )] = 0
+    cl_z_clean = cl_z_clean[rowSums(cl_z_clean==0, na.rm = T)!=ncol(cl_z_clean),]
+    
+    # order
+    cl_z_clean_2 = cl_z_clean[1:1000,]
+    
+    # change row and colnames
+    colnames(cl_z_clean) = c(-w_n+1, rep("", w_n-2),"start", "start", "start", 1:w)
+    
+    #change color of heatmap
+    col_fun= circlize::colorRamp2(c(1, 0, -1), c("darkred",  "grey", "white"))
+    
+    # plot barplot of colSums an top of heatmap 
+    line = HeatmapAnnotation(crosslinks = anno_barplot
+                             (colSums(cl), height = unit(3, "cm")))
+    
+    # make Heatmap
+    region_hmap = Heatmap(cl_z_clean_2, cluster_columns = F, cluster_rows = T, top_annotation = line,  show_row_dend = F, name = paste("#", nrow(cl_z_clean), "#", nrow(cl_z_clean_2)),  use_raster = T, raster_device = "png", col=col_fun)
+    
+    region_hmap
+}
+
+
+# endo
+start_cod_z_hmap(hits = makeGRangesFromDataFrame(BS, keep.extra.columns = T), 
+                 annotation = anno, 
+                 bw_plus_path = bw_path_list[[3]], 
+                 bw_minus_path = bw_path_list[[4]], 
+                 title =  "", 
+                 w= 30, w_n =10)
+
+pdf(paste0(outpath, "periocidicity_heatmap.pdf"))
+start_cod_z_hmap(hits = makeGRangesFromDataFrame(BS, keep.extra.columns = T), 
+                 annotation = anno, 
+                 bw_plus_path = bw_path_list[[3]], 
+                 bw_minus_path = bw_path_list[[4]], 
+                 title =  "", 
+                 w= 30, w_n =10)
+dev.off()
+
+
+
+
+
+```
+
