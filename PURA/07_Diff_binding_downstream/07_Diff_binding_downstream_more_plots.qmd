@@ -1,0 +1,487 @@
+---
+title: "Differential binding of the three PURA HeLa iCLIPs - 2 endo vs oe "
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("/Users/melinaklostermann/Documents/projects/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+
+
+
+```{r libraries, include=FALSE}
+
+library(dplyr)
+library(GenomicFeatures)
+library(DESeq2)
+library(purrr)
+
+
+out <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/08_Diff_binding_downstream/"
+```
+
+# What was done in this report?
+
+
+
+```{r}
+
+bs_merge_prefilter <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/07_Differential_binding/bds_merge_endo_oe_ranges.rds") 
+names(bs_merge_prefilter) <- 1:NROW(bs_merge_prefilter)
+
+bs_merge_prefilter <- bs_merge_prefilter |>
+  as.data.frame()
+
+bs_merge <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/07_Differential_binding/merged_bs_diff_endo_oe_res.rds") %>% 
+  as.data.frame()
+
+bs_merge2 <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/07_Differential_binding/merged_bs_diff_flag_oe_res.rds") %>% 
+  as.data.frame()
+
+bs_merge3 <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/07_Differential_binding/merged_bs_diff_endo_flag_res.rds") %>% 
+  as.data.frame()
+
+bs_merge4 <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/07_Differential_binding/merged_bs_diff_oe_2v2_res.rds") %>% 
+  as.data.frame()
+
+bs_merge <- bs_merge %>% mutate(
+  bs_direction = case_when((bs.padj < 0.01) & (bs.log2FoldChange > 0) ~ "up",
+  (bs.padj < 0.01) & (bs.log2FoldChange < 0) ~ "down",
+  T ~ "none"),
+  bg_direction = case_when((bg.padj < 0.01) & (bg.log2FoldChange > 0) ~ "up",
+  (bg.padj < 0.01) & (bg.log2FoldChange < 0) ~ "down",
+  T ~ "none")
+
+)
+
+
+nrow(bs_merge)
+
+```
+
+
+# Overlaps
+```{r}
+bs_merge_infl <- bs_merge_prefilter %>% tidyr::separate_rows(dataset) %>% split(., .$dataset)
+names(bs_merge_infl)
+
+# venn of overlaps
+overlaps <- data.frame( endo = bs_merge_prefilter$bsID %in% bs_merge_infl$endo$bsID,
+                         oe = bs_merge_prefilter$bsID %in% bs_merge_infl$oe$bsID,
+                        flag = bs_merge_prefilter$bsID %in% bs_merge_infl$flag$bsID)
+              
+ 
+venn <- eulerr::euler(overlaps)
+plot(venn, quantities = TRUE, fontface = 1)
+
+pdf(paste0(out, "venn_bs.pdf"))
+plot(venn, quantities = TRUE, fontface = 1)
+dev.off()
+
+
+# venn of overlaps of genes
+overlaps2 <- data.frame( endo = unique(bs_merge_prefilter$geneID) %in% bs_merge_infl$endo$geneID,
+                         oe = unique(bs_merge_prefilter$geneID) %in% bs_merge_infl$oe$geneID,
+                        flag = unique(bs_merge_prefilter$geneID) %in% bs_merge_infl$flag$geneID)
+              
+ 
+venn2 <- eulerr::euler(overlaps2)
+plot(venn2, quantities = TRUE, fontface = 1)
+
+pdf(paste0(out, "venn_genes.pdf"))
+plot(venn2, quantities = TRUE, fontface = 1)
+dev.off()
+
+map(bs_merge_infl, ~nrow(.x))
+map(bs_merge_infl, ~length(unique(.x$geneID)))
+
+```
+
+
+# Changes by
+
+```{r}
+
+ggplot(bs_merge, aes(x = bs.log2FoldChange, y = -log10(bs.padj), color = bs.padj < 0.01 ))+
+  geom_point()+
+  scale_color_manual(values = c( "grey", "black"))+
+  theme_thesis()
+
+
+ggplot(bs_merge, aes(x = log10(bs.baseMean), y = bs.log2FoldChange ))+
+  ggrastr::rasterise(geom_point(color = "grey", size = 0.25), dpi = 400 )+
+   ggrastr::rasterise(geom_point(data = bs_merge %>% subset(., bs.padj < 0.01, ), aes(x = log10(bs.baseMean), y = bs.log2FoldChange ), color = "black", size = 0.25), dpi = 400)+
+  theme_thesis()+
+  ylim(c(-12,12))
+
+ggsave(paste0(out, "MA_oe_endo.pdf"), width = 6, height = 4, units = "cm")
+
+
+nrow(bs_merge %>% subset(., bs.padj < 0.01 & bs.log2FoldChange > 0 ))
+nrow(bs_merge %>% subset(., bs.padj < 0.01 & bs.log2FoldChange < 0 ))
+
+
+```
+
+## where binding sites comes from
+
+```{r fig.width = 4, fig.height = 2.5}
+
+ggplot(bs_merge, aes(x = bs.log2FoldChange, y = -log10(bs.padj), color = bs.padj < 0.01 ))+
+  geom_point()+
+  facet_wrap(~dataset, nrow = 2)+
+  scale_color_manual(values = c( "grey", "black"))+
+  theme_thesis()
+
+
+```
+
+
+## binding site strength
+
+```{r}
+
+bs_merge_strongest_per_gene <- bs_merge %>% 
+  group_by(geneID) %>% 
+  arrange(desc(score)) %>%
+  dplyr::slice(1)
+
+ggplot(bs_merge, aes(x = bs.log2FoldChange, y = -log10(bs.padj), color = bs.padj < 0.01 ))+
+  geom_point()+
+  facet_wrap(~dataset, nrow = 2)+
+  scale_color_manual(values = c( "grey", "black"))+
+  geom_point(data = bs_merge_strongest_per_gene, aes(x = bs.log2FoldChange, y = -log10(bs.padj)), color = "goldenrod")+
+  #geom_point(data = bs_merge_weakest_per_gene, aes(x = bs.log2FoldChange, y = -log10(bs.padj)), color = "deepskyblue")+
+  theme_thesis()
+
+
+ggplot(bs_merge_strongest_per_gene, aes( x = bs.log2FoldChange))+
+  stat_ecdf(data= bs_merge, aes(x = bs.log2FoldChange), color = "gray43")+
+  stat_ecdf(color = "olivedrab")+
+  coord_cartesian(xlim=c(-5,5))
+
+ggsave(paste0(out, "ecdf_strongestBS_oe.pdf"), height = 6, width = 6, units = "cm")
+
+
+```
+
+## bound region
+
+
+# Changes of background per gene
+
+```{r}
+bs_merge_strongest_per_gene 
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bg.log2FoldChange, y = -log10(bg.padj), color = bg.padj < 0.01, ))+
+  geom_point()+
+  scale_color_manual(values = c( "grey", "black"))+
+  theme_thesis()
+
+bs_merge_strongest_per_gene  %>% 
+  ungroup(.) %>%
+  arrange(desc(bg.log2FoldChange)) 
+
+bs_merge_strongest_per_gene  %>% 
+  ungroup(.) %>%
+  arrange(bg.log2FoldChange)
+
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bg.log2FoldChange, y = -log10(bg.padj), color = geneType, ))+
+  geom_point()+
+  scale_color_manual(values = c( "goldenrod", "black"))+
+  theme_thesis()+
+  facet_wrap(~geneType)
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bs.log2FoldChange, y = -log10(bs.padj), color = geneType, ))+
+  geom_point()+
+  scale_color_manual(values = c( "goldenrod", "black"))+
+  theme_thesis()+
+  facet_wrap(~geneType)
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bs.log2FoldChange, color = geneType, ))+
+  stat_ecdf()+
+  scale_color_manual(values = c( "goldenrod", "black"))+
+  theme_thesis()
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bg.log2FoldChange, color = geneType, ))+
+  stat_ecdf()+
+  scale_color_manual(values = c( "goldenrod", "black"))+
+  theme_thesis()
+
+table(bs_merge_strongest_per_gene$geneType)
+
+bs_merge_strongest_per_gene[bs_merge_strongest_per_gene$geneType == "lncRNA",]$geneName
+
+
+t <- c("ZNFX1", "CSRP1", "PCBP1", "CD27", "EPB41L4A", "FGD5", "XIST", "ENTPD1", "WARS2", "RNASEH1", "MAPKAPK5", "PRKAG2", "GATA2", "TP53", "AHCY", "WAC", "PARD6G", "RPARP", "BACE1", "SMARCC2"  )
+bs_merge_strongest_per_gene[bs_merge_strongest_per_gene$geneName %in% t,]
+
+
+
+```
+
+
+## Compare to RNAseq oe
+```{r}
+######################
+# deSeq
+#####################
+htseq_matrix <- read.table("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/03-RNAseq/00-htseq/htseq_antisense.out", skip = 1)
+htseq_matrix <- htseq_matrix %>% subset(!grepl("_PAR_Y", V1)) %>%
+  subset(!grepl("__", V1))
+
+rownames(htseq_matrix) <- sub("\\..*", "", htseq_matrix$V1) 
+htseq_matrix$V1 <- NULL
+htseq_matrix$V6 <- NULL
+htseq_matrix$V7 <- NULL
+htseq_matrix$V8 <- NULL
+htseq_matrix$V9 <- NULL
+
+
+colnames(htseq_matrix) <- c( "oe1", "oe2", "oe3", "oe4", "wt1", "wt2", "wt3", "wt4")
+
+
+condition_all <- c( rep("oe",4), rep("wt",4))
+sampleReplicate_3 <- rep(paste("Rep",1:4, sep = "_"),2)
+sampleTable_all <- data.frame(sampleName = colnames(htseq_matrix),
+                          condition = condition_all,
+                          replicate = sampleReplicate_3)
+
+dds_DataSet <- DESeqDataSetFromMatrix(colData = sampleTable_all, htseq_matrix, design = ~condition)
+
+dds_analysis <- DESeq(dds_DataSet, betaPrior =T)
+
+res_RNAseq_oe <- results(dds_analysis, contrast = c("condition", "oe", "wt"))%>% as.data.frame()
+res_RNAseq_oe$gene_id <- rownames(res_RNAseq_oe)
+
+
+bs_merge_strongest_per_gene <- left_join(bs_merge_strongest_per_gene, res_RNAseq_oe, by = c(geneID = "gene_id"), suffix = c("", ".RNAseq"))
+
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bg.log2FoldChange, y = log2FoldChange))+
+  geom_point()+
+  ggpointdensity::geom_pointdensity()+
+  ggpubr::stat_cor()+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)
+
+
+ggplot(bs_merge_strongest_per_gene , aes(x = log2FoldChange, color = bs_direction))+
+  stat_ecdf()+
+  coord_cartesian(xlim = c(-1,1))
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bg.log2FoldChange, color = bs_direction))+
+  stat_ecdf()
+
+
+
+```
+
+## Compare to RNAseq kd
+
+```{r}
+RNAseq_kd <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/Molitor-et-al-2022/deseq.rds")
+bs_merge_strongest_per_gene <- left_join(bs_merge_strongest_per_gene, res_RNAseq_oe, by = c(geneID = "gene_id"), suffix = c(".RNAseq_oe", ".RNAseq_kd"))
+
+ggplot(bs_merge_strongest_per_gene , aes(x = bg.log2FoldChange, y = log2FoldChange.RNAseq_kd))+
+  geom_point()+
+  ggpointdensity::geom_pointdensity()+
+  ggpubr::stat_cor()+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)
+
+
+```
+
+
+# Oe vs flag
+
+```{r}
+ggplot(bs_merge2, aes(x = log10(bs.baseMean), y = bs.log2FoldChange ))+
+  ggrastr::rasterise(geom_point(color = "grey", size = 0.25), dpi = 400 )+
+   ggrastr::rasterise(geom_point(data = bs_merge2 %>% subset(., bs.padj < 0.01, ), aes(x = log10(bs.baseMean), y = bs.log2FoldChange ), color = "black", size = 0.25), dpi = 400)+
+  theme_thesis()+
+  ylim(c(-12,12))
+
+ggsave(paste0(out, "MA_oe_flag.pdf"), width = 6, height = 4, units = "cm")
+
+nrow(bs_merge2 %>% subset(., bs.padj< 0.01 & bs.log2FoldChange > 0 ))
+nrow(bs_merge2 %>% subset(., bs.padj < 0.01 & bs.log2FoldChange < 0 ))
+
+
+```
+
+# endo vs flag
+
+```{r}
+ggplot(bs_merge3, aes(x = log10(bs.baseMean), y = bs.log2FoldChange ))+
+  ggrastr::rasterise(geom_point(color = "grey", size = 0.25), dpi = 400 )+
+   ggrastr::rasterise(geom_point(data = bs_merge2 %>% subset(., bs.padj < 0.01, ), aes(x = log10(bs.baseMean), y = bs.log2FoldChange ), color = "black", size = 0.25), dpi = 400)+
+  theme_thesis()+
+  ylim(c(-12,12))
+
+ggsave(paste0(out, "MA_endo_flag.pdf"), width = 6, height = 4, units = "cm")
+
+nrow(bs_merge3 %>% subset(., bs.padj< 0.01 & bs.log2FoldChange > 0 ))
+nrow(bs_merge3 %>% subset(., bs.padj < 0.01 & bs.log2FoldChange < 0 ))
+
+
+```
+
+# oe vs oe
+
+```{r}
+ggplot(bs_merge3, aes(x = log10(bs.baseMean), y = bs.log2FoldChange ))+
+  ggrastr::rasterise(geom_point(color = "grey", size = 0.25), dpi = 400 )+
+   ggrastr::rasterise(geom_point(data = bs_merge2 %>% subset(., bs.padj < 0.01, ), aes(x = log10(bs.baseMean), y = bs.log2FoldChange ), color = "black", size = 0.25), dpi = 400)+
+  theme_thesis()+
+  ylim(c(-12,12))
+
+ggsave(paste0(out, "MA_endo_flag.pdf"), width = 6, height = 4, units = "cm")
+
+nrow(bs_merge3 %>% subset(., bs.padj< 0.01 & bs.log2FoldChange > 0 ))
+nrow(bs_merge3 %>% subset(., bs.padj < 0.01 & bs.log2FoldChange < 0 ))
+
+
+```
+
+# Compare all endo-oe flag-oe conditions
+
+```{r}
+bs_merge <- left_join(bs_merge, bs_merge2[, c("bsID", "bs.log2FoldChange", "bg.log2FoldChange", "bs.padj")], by = "bsID", suffix = c("", ".flag"))
+
+ggplot(bs_merge, aes(bs.log2FoldChange, bs.log2FoldChange.flag))+
+         ggrastr::rasterise(geom_point(color = "gray43",alpha = 0.5, size = 0.25), dpi = 300)+
+    ggrastr::rasterise(geom_point(data = bs_merge %>% subset(bs.padj >= 0.05), aes(bs.log2FoldChange, bs.log2FoldChange.flag), color = "black", alpha = 0.5, size = 0.25), dpi = 300)+
+  ggrastr::rasterise(geom_point(data = bs_merge %>% subset(bs.padj.flag >= 0.05), aes(bs.log2FoldChange, bs.log2FoldChange.flag), color = "deepskyblue", alpha = 0.5, size = 0.25), dpi = 300)+
+  ggrastr::rasterise(geom_point(data = bs_merge %>% subset((bs.padj >= 0.05) & (bs.padj.flag >= 0.01)), aes(bs.log2FoldChange, bs.log2FoldChange.flag), color = "goldenrod", alpha = 0.8, size = 0.25), dpi = 300)+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)+
+  xlim( c(-12,12))
+
+ggsave(paste0(out, "scatter_all.pdf"), height = 6, width = 6, units = "cm")
+
+
+score_top <- quantile(bs_merge$score, probs = seq(0, 1, 0.05))["95%"]
+score_bottom <- quantile(bs_merge$score, probs = seq(0, 1, 0.05))["5%"]
+
+
+ggplot(bs_merge, aes(bs.log2FoldChange, bs.log2FoldChange.flag,))+
+         ggrastr::rasterise(geom_point(color = "gray43",alpha = 0.5, size = 0.25), dpi = 300)+
+  ggrastr::rasterise(geom_point(data = bs_merge %>% subset(score >= score_top), aes(bs.log2FoldChange, bs.log2FoldChange.flag), color = "olivedrab3", alpha = 0.5, size = 0.25), dpi = 300)+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)+
+  xlim( c(-12,12))
+
+ggsave(paste0(out, "scatter_top.pdf"), height = 6, width = 6, units = "cm")
+
+
+ggplot(bs_merge, aes(bs.log2FoldChange, bs.log2FoldChange.flag))+
+         ggrastr::rasterise(geom_point(color = "gray43", alpha =0.5, size = 0.25), dpi = 300)+
+  ggrastr::rasterise(geom_point(data = bs_merge %>% subset(score < score_bottom ), aes(bs.log2FoldChange, bs.log2FoldChange.flag), color = "lightgoldenrod", alpha = 0.5, size = 0.25), dpi = 300)+
+  geom_hline(yintercept = 0)+
+  geom_vline(xintercept = 0)+
+  xlim( c(-12,12))
+
+ggsave(paste0(out, "scatter_bottom.pdf"), height = 6, width = 6, units = "cm")
+
+```
+
+
+```{r}
+bs_merge_strongest_per_gene2 <- bs_merge %>% 
+  group_by(geneID) %>% 
+  arrange(desc(score)) %>%
+  dplyr::slice(1)
+
+bs_merge_weakest_per_gene2 <- bs_merge %>% 
+  group_by(geneID) %>% 
+  arrange(score) %>%
+  dplyr::slice(1)
+
+ggplot(bs_merge_strongest_per_gene2, aes( x = bs.log2FoldChange.flag))+
+  stat_ecdf(data= bs_merge, aes(x = bs.log2FoldChange.flag), color = "gray43")+
+  stat_ecdf(data= bs_merge_weakest_per_gene2, aes(x = bs.log2FoldChange.flag), color = "darkred")+
+  stat_ecdf(color = "olivedrab")+
+  coord_cartesian(xlim=c(-5,5))
+
+ggsave(paste0(out, "ecdf_strongestBS_flag.pdf"), height = 6, width = 6, units = "cm")
+```
+# Compare ecdfs all
+
+```{r}
+bs_merge_strongest_per_gene3 <- bs_merge3 %>% 
+  group_by(geneID) %>% 
+  arrange(desc(score)) %>%
+  dplyr::slice(1)
+
+ggplot(bs_merge, aes( x = bs.log2FoldChange))+
+  stat_ecdf(data= bs_merge4, aes(x = bs.log2FoldChange), color = "gray43")+
+  stat_ecdf(data= bs_merge3, aes(x = bs.log2FoldChange), color = "#2AB7CA")+
+  stat_ecdf(data= bs_merge2, aes(x = bs.log2FoldChange), color = "darkred")+
+  stat_ecdf(color = "blue")+
+  stat_ecdf(data= bs_merge_strongest_per_gene3, aes(x = bs.log2FoldChange), color = "#2AB7CA")+ # , linetype = "dotted"
+  stat_ecdf(data= bs_merge_strongest_per_gene , aes(x = bs.log2FoldChange), color = "blue")+ # , linetype = "dotted"
+  coord_cartesian(xlim=c(-5,5))
+
+ggsave(paste0(out, "ecdf_endo_vs_oe_and_flag.pdf"), height = 4, width = 4, units = "cm")
+
+
+ggplot(bs_merge_strongest_per_gene, aes( x = bs.log2FoldChange))+
+  stat_ecdf(data= bs_merge4, aes(x = bs.log2FoldChange), color = "gray43")+
+  stat_ecdf(data= bs_merge_strongest_per_gene3, aes(x = bs.log2FoldChange), color = "#2AB7CA")+
+  stat_ecdf(color = "blue")+
+  coord_cartesian(xlim=c(-5,5))
+
+
+
+```
+
+
+
+# Session Info
+```{r}
+sessionInfo()
+
+```

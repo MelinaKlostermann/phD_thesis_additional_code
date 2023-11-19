@@ -1,0 +1,260 @@
+---
+title: "Differential binding of the three PURA HeLa iCLIPs - 2 endo vs oe "
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("/Users/melinaklostermann/Documents/projects/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+
+
+
+```{r libraries, include=FALSE}
+
+library(dplyr)
+library(GenomicFeatures)
+library(DESeq2)
+library(purrr)
+
+
+out <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/07_Diff_binding_downstream/"
+```
+
+# What was done in this report?
+
+- Overlaps of bound genes and bound regions between the three data sets, on the bases of a union from the binding sites from all three
+- MA plots for the differential binding of oe vs endo and flag vs endo
+- ECDFs of changes in binding strength, between various sets
+
+
+```{r}
+
+bs_merge_prefilter <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/06_Differential_binding/bds_merge_endo_oe_ranges.rds") 
+names(bs_merge_prefilter) <- 1:NROW(bs_merge_prefilter)
+
+bs_merge_prefilter <- bs_merge_prefilter |>
+  as.data.frame()
+
+bs_merge <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/06_Differential_binding/merged_bs_diff_endo_oe_res.rds") %>% 
+  as.data.frame()
+
+bs_merge2 <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/06_Differential_binding/merged_bs_diff_flag_oe_res.rds") %>% 
+  as.data.frame()
+
+bs_merge3 <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/06_Differential_binding/merged_bs_diff_endo_flag_res.rds") %>% 
+  as.data.frame()
+
+bs_merge4 <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/06_Differential_binding/merged_bs_diff_oe_2v2_res.rds") %>% 
+  as.data.frame()
+
+bs_merge <- bs_merge %>% mutate(
+  bs_direction = case_when((bs.padj < 0.01) & (bs.log2FoldChange > 0) ~ "up",
+  (bs.padj < 0.01) & (bs.log2FoldChange < 0) ~ "down",
+  T ~ "none"),
+  bg_direction = case_when((bg.padj < 0.01) & (bg.log2FoldChange > 0) ~ "up",
+  (bg.padj < 0.01) & (bg.log2FoldChange < 0) ~ "down",
+  T ~ "none")
+
+)
+
+
+nrow(bs_merge)
+
+```
+
+
+# Overlaps of binding sites and genes
+
+```{r}
+bs_merge_infl <- bs_merge_prefilter %>% tidyr::separate_rows(dataset) %>% split(., .$dataset)
+names(bs_merge_infl)
+
+# venn of overlaps
+overlaps <- data.frame( endo = bs_merge_prefilter$bsID %in% bs_merge_infl$endo$bsID,
+                         oe = bs_merge_prefilter$bsID %in% bs_merge_infl$oe$bsID,
+                        flag = bs_merge_prefilter$bsID %in% bs_merge_infl$flag$bsID)
+              
+ 
+venn <- eulerr::euler(overlaps)
+plot(venn, quantities = TRUE, fontface = 1)
+
+pdf(paste0(out, "venn_bs.pdf"))
+plot(venn, quantities = TRUE, fontface = 1)
+dev.off()
+
+
+# venn of overlaps of genes
+overlaps2 <- data.frame( endo = unique(bs_merge_prefilter$geneID) %in% bs_merge_infl$endo$geneID,
+                         oe = unique(bs_merge_prefilter$geneID) %in% bs_merge_infl$oe$geneID,
+                        flag = unique(bs_merge_prefilter$geneID) %in% bs_merge_infl$flag$geneID)
+              
+ 
+venn2 <- eulerr::euler(overlaps2)
+plot(venn2, quantities = TRUE, fontface = 1)
+
+pdf(paste0(out, "venn_genes.pdf"))
+plot(venn2, quantities = TRUE, fontface = 1)
+dev.off()
+
+map(bs_merge_infl, ~nrow(.x))
+map(bs_merge_infl, ~length(unique(.x$geneID)))
+
+```
+
+
+# Changes between oe and endo
+
+```{r}
+
+ggplot(bs_merge, aes(x = log10(bs.baseMean), y = bs.log2FoldChange ))+
+  ggrastr::rasterise(geom_point(color = "grey", size = 0.25), dpi = 400 )+
+   ggrastr::rasterise(geom_point(data = bs_merge %>% subset(., bs.padj < 0.01, ), aes(x = log10(bs.baseMean), y = bs.log2FoldChange ), color = "black", size = 0.25), dpi = 400)+
+  theme_thesis()+
+  ylim(c(-12,12))
+
+ggsave(paste0(out, "MA_oe_endo.pdf"), width = 6, height = 4, units = "cm")
+
+
+nrow(bs_merge %>% subset(., bs.padj < 0.01 & bs.log2FoldChange > 0 ))
+nrow(bs_merge %>% subset(., bs.padj < 0.01 & bs.log2FoldChange < 0 ))
+
+
+```
+
+
+
+## binding site strength
+
+```{r}
+
+bs_merge_strongest_per_gene <- bs_merge %>% 
+  group_by(geneID) %>% 
+  arrange(desc(score)) %>%
+  dplyr::slice(1)
+
+
+```
+
+
+
+# endo vs flag
+
+```{r}
+ggplot(bs_merge3, aes(x = log10(bs.baseMean), y = bs.log2FoldChange ))+
+  ggrastr::rasterise(geom_point(color = "grey", size = 0.25), dpi = 400 )+
+   ggrastr::rasterise(geom_point(data = bs_merge2 %>% subset(., bs.padj < 0.01, ), aes(x = log10(bs.baseMean), y = bs.log2FoldChange ), color = "black", size = 0.25), dpi = 400)+
+  theme_thesis()+
+  ylim(c(-12,12))
+
+ggsave(paste0(out, "MA_endo_flag.pdf"), width = 6, height = 4, units = "cm")
+
+nrow(bs_merge3 %>% subset(., bs.padj< 0.01 & bs.log2FoldChange > 0 ))
+nrow(bs_merge3 %>% subset(., bs.padj < 0.01 & bs.log2FoldChange < 0 ))
+
+
+```
+
+# oe vs oe
+
+```{r}
+ggplot(bs_merge4, aes(x = log10(bs.baseMean), y = bs.log2FoldChange ))+
+  ggrastr::rasterise(geom_point(color = "grey", size = 0.25), dpi = 400 )+
+   ggrastr::rasterise(geom_point(data = bs_merge2 %>% subset(., bs.padj < 0.01, ), aes(x = log10(bs.baseMean), y = bs.log2FoldChange ), color = "black", size = 0.25), dpi = 400)+
+  theme_thesis()+
+  ylim(c(-12,12))
+
+ggsave(paste0(out, "MA_endo_flag.pdf"), width = 6, height = 4, units = "cm")
+
+nrow(bs_merge4 %>% subset(., bs.padj< 0.01 & bs.log2FoldChange > 0 ))
+nrow(bs_merge4 %>% subset(., bs.padj < 0.01 & bs.log2FoldChange < 0 ))
+
+
+```
+
+# Compare all endo-oe flag-oe conditions
+
+```{r}
+bs_merge <- left_join(bs_merge, bs_merge2[, c("bsID", "bs.log2FoldChange", "bg.log2FoldChange", "bs.padj")], by = "bsID", suffix = c("", ".flag"))
+
+
+```
+
+
+
+
+
+```{r}
+bs_merge_strongest_per_gene3 <- bs_merge3 %>% 
+  group_by(geneID) %>% 
+  arrange(desc(score)) %>%
+  dplyr::slice(1)
+
+ggplot(bs_merge, aes( x = bs.log2FoldChange))+
+  stat_ecdf(data= bs_merge4, aes(x = bs.log2FoldChange), color = "gray43")+
+  stat_ecdf(data= bs_merge3, aes(x = bs.log2FoldChange), color = "#2AB7CA")+
+  stat_ecdf(data= bs_merge2, aes(x = bs.log2FoldChange), color = "darkred")+
+  stat_ecdf(color = "blue")+
+  stat_ecdf(data= bs_merge_strongest_per_gene3, aes(x = bs.log2FoldChange), color = "#2AB7CA")+ # , linetype = "dotted"
+  stat_ecdf(data= bs_merge_strongest_per_gene , aes(x = bs.log2FoldChange), color = "blue")+ # , linetype = "dotted"
+  coord_cartesian(xlim=c(-5,5))
+
+ggsave(paste0(out, "ecdf_endo_vs_oe_and_flag.pdf"), height = 4, width = 4, units = "cm")
+
+
+ggplot(bs_merge_strongest_per_gene, aes( x = bs.log2FoldChange))+
+  stat_ecdf(data= bs_merge4, aes(x = bs.log2FoldChange), color = "gray43")+
+  stat_ecdf(data= bs_merge_strongest_per_gene3, aes(x = bs.log2FoldChange), color = "#2AB7CA")+
+  stat_ecdf(color = "blue")+
+  coord_cartesian(xlim=c(-5,5))
+
+
+
+```
+
+
+
+# Session Info
+```{r}
+sessionInfo()
+
+```
