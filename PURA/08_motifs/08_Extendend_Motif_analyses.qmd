@@ -1,0 +1,422 @@
+---
+title: "STREAM motif analyis"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("/Users/melinaklostermann/Documents/projects/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+
+
+
+```{r libraries, include=FALSE}
+
+library(dplyr)
+library(GenomicFeatures)
+library(DESeq2)
+library(memes)
+options(meme_bin = "/Users/melinaklostermann/meme/bin/")
+library(universalmotif)
+library(GenomicRanges)
+library(rtracklayer)
+library(knitr)
+library(GenomicFeatures)
+library(dplyr)
+library(ggpubr)
+library(Gviz)
+library(biomaRt)
+library(Biostrings)
+library(BSgenome)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(gghalves)
+library(purrr)
+library(ggseqlogo)
+
+
+outpath <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/09_motifs/"
+
+```
+
+
+```{r input}
+# iCLIP 
+BS <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/Molitor-et-al-2022/binding_sites_characterized.rds") %>% makeGRangesFromDataFrame(keep.extra.columns = T)
+
+
+# bw endo
+cl_endo <- c(readRDS("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/02-Comp-iCLIPs/XX-Combined_experiments/crosslink_list_PURA_all_iCLIPs.rds")[[2]][[1]],
+             readRDS("/Users/melinaklostermann/Documents/projects/PURA/02_R_new_pip/02-Comp-iCLIPs/XX-Combined_experiments/crosslink_list_PURA_all_iCLIPs.rds")[[2]][[2]])
+
+# annotations
+anno <- readRDS("/Users/melinaklostermann/Documents/projects/PURA/Molitor-et-al-2022/annotation.rds")
+txdb <- makeTxDbFromGRanges(anno)
+
+transcriptome_seqs <- readDNAStringSet("/Users/melinaklostermann/Documents/projects/anno/GENCODEv31-p12/gencode.v31.transcripts.fa.gz") 
+names(transcriptome_seqs) <- substring(names(transcriptome_seqs),1,15)
+
+
+
+```
+
+# What was done in this report?
+
+- Here I am looking at sequencing logos and kmer distributions in and around PURA binding sites
+- the overlapping binding sites from all 3 HeLa PURA iCLIPs were used
+- Transcript sequences of binding sites and surroundings were retrieved
+- 3'UTR and CDS binding sites are treated seperatly, because of the different nucleotide compositions of these regions
+- a 100X permutation background with the same size as the positive set from the same region was used to calculate z-scores
+- also repetions of the same motiv are counted and set in relation to the pureclip score
+
+
+
+# Transcript annotation and sequences in an around BS 
+
+- The transcript annotation for the BS and surrounding are retrieved together with their sequence
+- The gene annotations can be mapped to transcript annotations with mapToTranscripts(extractor.fun = GenomicFeatures::exonsBy) from GenomicFeatures package
+- The transcript sequences are taken from gencode v31
+- 100 permuatation of a random background from the same region are calculated
+
+```{r transcripts}
+
+expressed_transcripts <- subsetByOverlaps(unlist(transcriptsBy(txdb)), cl_endo)
+ 
+transcriptome_seqs_coords <- GRanges(seqnames = names(transcriptome_seqs), IRanges(start = 1, width = width(transcriptome_seqs)), strand = "+")
+transcriptome_seqs_coords_expr <- transcriptome_seqs_coords[seqnames(transcriptome_seqs_coords) %in% substring(expressed_transcripts$tx_name,1,15)]
+
+
+save(transcriptome_seqs_coords_expr, file =  paste0(outpath,"coords_expressed_transcripts.RData"))
+
+```
+
+## 3'UTR
+
+```{r utr_BS_seqs, include=T, eval=F}
+###################
+# cds BS on transcripts
+##################
+
+# get BS location on transcripts
+# (transcripts are always forward (plus strand))
+BS_3UTR <- BS[BS$region=="three_prime_UTR"] %>% mapToTranscripts(., txdb, extractor.fun = GenomicFeatures::exonsBy, use.names =T) %>% 
+  as.data.frame() %>%
+  mutate(seqnames = substring(seqnames,1,15), strand ="+") %>%
+  distinct(xHits, .keep_all = T) %>%
+  filter(start >0 & end >0)%>%
+   makeGRangesFromDataFrame(keep.extra.columns = T)
+ 
+BS_3UTR <- BS_3UTR[seqnames(BS_3UTR) %in% names(transcriptome_seqs)]
+
+# get seqs
+seqences_BS_3utr <- getSeq(x = transcriptome_seqs, names = BS_3UTR)
+
+ 
+###################
+# background
+##################
+threeUTR_transcript_anno <- mapToTranscripts(unlist(threeUTRsByTranscript(txdb, use.names = T)), txdb, extractor.fun = GenomicFeatures::exonsBy, use.names =T) %>%
+   GenomicRanges::reduce() %>%
+   as.data.frame() %>% 
+   mutate(seqnames = substring(seqnames,1,15), strand ="+") %>%
+  distinct(seqnames, .keep_all = T) %>%
+   makeGRangesFromDataFrame() 
+ 
+threeUTR_transcript_anno <- threeUTR_transcript_anno[seqnames(threeUTR_transcript_anno) %in% substring(expressed_transcripts$tx_name,1,15)] 
+ 
+
+################
+ # make a list of 100 permutation of background signal
+###############
+ random_bg_3utr <- list()
+ 
+w_b <- 5
+ # threeUTR_transcript_anno <- threeUTR_transcript_anno %>% 
+ #   as.data.frame() %>%
+ #   left_join(transcript_annotation_df, by = c(seqnames = "tx_name"))
+ 
+ 
+ for(i in 1:100){
+ # select transcripts with crosslinks
+r_transcripts = threeUTR_transcript_anno[sample(1:NROW(threeUTR_transcript_anno), replace = T)]
+ 
+ r_seqs = r_transcripts  %>% as.data.frame(.) %>% rowwise() %>% 
+   mutate(start = sample(start:(end-w_b-2), 1),
+       end = start+(w_b -1),
+          width = 5) %>%
+   ungroup() %>%
+   as.data.frame() %>%
+   makeGRangesFromDataFrame(keep.extra.columns = T)
+
+  # seqinfo(gr)@seqlengths <- chrom_sizes[seqinfo(grl)@seqnames,]$length
+ 
+ r_seqs  = r_seqs[r_seqs %within% r_transcripts]
+ 
+ random_bg_3utr[[i]] = r_seqs[sample(1:NROW(r_seqs), NROW(seqences_BS_3utr))] 
+ }
+
+#################
+# get sequences
+###############
+
+
+seqences_bg_3utr <- map(random_bg_3utr, ~getSeq(x = transcriptome_seqs, names =.x))
+ 
+ 
+ save(BS_3UTR, file = paste0(outpath, "tx_gr_BS_3utr.RData"))
+ save(seqences_BS_3utr, file = paste0(outpath, "seqs_BS_3utr.RData"))
+ 
+  
+ save(random_bg_3utr, file = paste0(outpath, "tx_gr_BG_3utr.RData"))
+ save(seqences_bg_3utr, file = paste0(outpath, "seqs_BG_3utr.RData"))
+
+```
+
+
+
+## CDS
+
+```{r cds_BS_seqs,  include=T, eval=F}
+###################
+# cds BS on transcripts
+##################
+
+# get BS location on transcripts
+# (transcripts are always forward (plus strand))
+BS_CDS <- BS[BS$region=="CDS"] %>% mapToTranscripts(., txdb, extractor.fun = GenomicFeatures::exonsBy, use.names =T) %>% 
+  as.data.frame() %>%
+  mutate(seqnames = substring(seqnames,1,15), strand ="+") %>%
+  distinct(xHits, .keep_all = T) %>%
+  filter(start >0 & end >0)%>%
+   makeGRangesFromDataFrame(keep.extra.columns = T)
+ 
+BS_CDS <- BS_CDS[seqnames(BS_CDS) %in% names(transcriptome_seqs)]
+
+# get seqs
+seqences_BS_cds <- getSeq(x = transcriptome_seqs, names = BS_CDS)
+
+ 
+###################
+# background
+##################
+CDS_transcript_anno <- mapToTranscripts(unlist(cdsBy(txdb, use.names = T)), txdb, extractor.fun = GenomicFeatures::exonsBy, use.names =T) %>%
+   GenomicRanges::reduce() %>%
+   as.data.frame() %>% 
+   mutate(seqnames = substring(seqnames,1,15), strand ="+") %>%
+  distinct(seqnames, .keep_all = T) %>%
+   makeGRangesFromDataFrame() 
+ 
+CDS_transcript_anno <- CDS_transcript_anno[seqnames(CDS_transcript_anno) %in% substring(expressed_transcripts$tx_name,1,15)] 
+ 
+ ################
+ # make a list of 100 permutation of background signal
+###############
+ random_bg_cds <- list()
+ 
+w_b <- 5
+ # threeUTR_transcript_anno <- threeUTR_transcript_anno %>% 
+ #   as.data.frame() %>%
+ #   left_join(transcript_annotation_df, by = c(seqnames = "tx_name"))
+ 
+ 
+ for(i in 1:100){
+ # select transcripts with crosslinks
+r_transcripts = CDS_transcript_anno[sample(1:NROW(CDS_transcript_anno), replace = T)]
+ 
+ r_seqs = r_transcripts  %>% as.data.frame(.) %>% rowwise() %>% 
+   mutate(start = sample(start:(end-w_b-2), 1),
+       end = start+(w_b -1),
+          width = 5) %>%
+   ungroup() %>%
+   as.data.frame() %>%
+   makeGRangesFromDataFrame(keep.extra.columns = T)
+
+  # seqinfo(gr)@seqlengths <- chrom_sizes[seqinfo(grl)@seqnames,]$length
+ 
+ r_seqs  = r_seqs[r_seqs %within% r_transcripts]
+ 
+ random_bg_cds[[i]] = r_seqs[sample(1:NROW(r_seqs), NROW(seqences_BS_cds))] 
+ }
+
+#################
+# get sequences
+###############
+
+
+seqences_bg_cds <- map(random_bg_cds, ~getSeq(x = transcriptome_seqs, names =.x))
+ 
+ 
+ save(BS_CDS, file = paste0(outpath, "tx_gr_BS_cds.RData"))
+ save(seqences_BS_cds, file = paste0(outpath, "seqs_BS_cds.RData"))
+ 
+  
+ save(random_bg_cds, file = paste0(outpath, "tx_gr_BG_cds.RData"))
+ save(seqences_bg_cds, file = paste0(outpath, "seqs_BG_cds.RData"))
+
+```
+
+```{r load_seqs}
+# 3UTR
+load(paste0(outpath, "tx_gr_BS_3utr.RData"))
+load(paste0(outpath, "seqs_BS_3utr.RData"))
+ 
+  
+load(paste0(outpath, "tx_gr_BG_3utr.RData"))
+load( paste0(outpath, "seqs_BG_3utr.RData"))
+ 
+ 
+# CDS
+load(paste0(outpath, "tx_gr_BS_cds.RData"))
+load(paste0(outpath, "seqs_BS_cds.RData"))
+ 
+  
+load(paste0(outpath, "tx_gr_BG_cds.RData"))
+load(paste0(outpath, "seqs_BG_cds.RData"))
+
+```
+
+
+# Run STREAME
+
+```{r}
+
+# enlarge
+
+test_ranges = list(
+BS_3UTR_45 = BS_3UTR + 20 ,
+BS_CDS_45 = BS_CDS + 20,
+BS_both  = c(BS_3UTR + 20, BS_CDS + 20)
+
+)
+
+
+background_ranges = list(
+  BG_3UTR_45 = random_bg_3utr[[1]] + 20,
+  BG_CDS_45 = random_bg_cds[[1]] + 20,
+  BG_both = c(random_bg_3utr[[1]] + 20, random_bg_cds[[1]] + 20)
+  
+  
+)
+
+map(background_ranges, ~NROW(.x))
+
+# subset so all is inside expressed transcripts
+test_ranges <- lapply(test_ranges, function(x) subsetByOverlaps(x, transcriptome_seqs_coords_expr, type="within"))
+background_ranges  <- lapply(background_ranges , function(x) subsetByOverlaps(x, transcriptome_seqs_coords_expr, type="within"))
+
+# get sequences
+test_ranges_seq <- map(test_ranges,  ~getSeq(x = transcriptome_seqs, names = .x))
+background_ranges_seq <- map(background_ranges,  ~getSeq(x = transcriptome_seqs, names = .x))
+
+names_test_ranges <- names(test_ranges) %>% as.list()
+names_background_ranges <- names(background_ranges) %>% as.list()
+
+# write fastas
+map2(test_ranges_seq, names_test_ranges, ~writeXStringSet(.x, paste0(outpath, .y, ".fasta")))
+map2(background_ranges_seq, names_background_ranges, ~writeXStringSet(.x, paste0(outpath, .y, ".fasta")))
+
+
+```
+
+```{r eval=FALSE, fig.height=10, fig.width=2, include=FALSE}
+
+stream <- map2(names_test_ranges, names_background_ranges,
+               ~runStreme(paste0(outpath, .x, ".fasta"), control = paste0(outpath, .y, ".fasta"), minw = 4, maxw = 8, verbosity = 2, niter = 100,  patience = 10, alph = "rna") )
+
+saveRDS(stream, paste0(outpath, "steam.rds"))
+
+```
+
+```{r fig.height=10, fig.width=2}
+
+stream <- readRDS(paste0(outpath, "steam.rds"))
+
+names_test_ranges
+stream %>% map(., ~filter(.x, pval < 0.05) %>% to_list() %>% view_motifs())
+
+pdf(paste0(outpath, "top_logos_stream.pdf"), width = 2, height = 10)
+stream[[3]] %>% filter(., pval < 0.01) %>% to_list() %>% view_motifs()
+dev.off()
+
+```
+
+```{r}
+streame_df <- stream[[3]] %>% as.data.frame()
+
+ggplot(streame_df, aes(x = log10(nsites), y = -log10(pval), label = seed, color = pval < 0.05))+
+  geom_point()+
+  scale_color_manual(values = c( "grey", "black"))+
+  ggrepel::geom_text_repel(size = 1)+
+  ylim(c(0,120))
+
+ggsave(paste0(outpath, "stream_motives_all.pdf"), height = 6, width = 6, units = "cm")
+
+streame_df_utr <- stream[[1]] %>% as.data.frame()
+
+ggplot(streame_df_utr, aes(x = log10(nsites), y = -log10(pval), label = seed, color = pval < 0.05))+
+  geom_point()+
+  scale_color_manual(values = c( "grey", "black"))+
+  ggrepel::geom_text_repel(size = 1)+
+  ylim(c(0,120))
+
+ggsave(paste0(outpath, "stream_motives_utr.pdf"), height = 6, width = 6, units = "cm")
+
+
+streame_df_cds <- stream[[2]] %>% as.data.frame()
+
+ggplot(streame_df_cds, aes(x = log10(nsites), y = -log10(pval), label = seed, color = pval < 0.05))+
+  geom_point()+
+  scale_color_manual(values = c( "grey", "black"))+
+  ggrepel::geom_text_repel(size = 1)+
+  ylim(c(0,120))
+
+ggsave(paste0(outpath, "stream_motives_cds.pdf"), height = 6, width = 6, units = "cm")
+
+
+```
+
+# Session info
+```{r}
+sessionInfo()
+
+```
+
+

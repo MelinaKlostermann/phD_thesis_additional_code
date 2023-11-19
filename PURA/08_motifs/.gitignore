@@ -1,0 +1,15 @@
+BG_3UTR_45.fasta
+BG_3UTR_65.fasta
+BG_CDS_45.fasta
+BG_CDS_65.fasta
+BG_both.fasta
+BS_3UTR_45.fasta
+BS_3UTR_45_vs_BG_3UTR_45
+BS_3UTR_65.fasta
+BS_3UTR_65_vs_BG_3UTR_65
+BS_CDS_45.fasta
+BS_CDS_45_vs_BG_CDS_45
+BS_CDS_65.fasta
+BS_CDS_65_vs_BG_CDS_65
+BS_both.fasta
+BS_both_vs_BG_both
