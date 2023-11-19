@@ -1,0 +1,230 @@
+---
+title: "Differential binding of the three PURA HeLa iCLIPs - 1 merge binding sites "
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("~/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+```{r, eval = FALSE}
+install.packages("ggplot2")
+install.packages("ggpubr")
+
+BiocManager::install("BindingSiteFinder")
+```
+
+
+```{r libraries, include=FALSE}
+library(BindingSiteFinder)
+library(dplyr)
+
+```
+
+# Input
+
+```{r}
+# path for output
+outpath <- "~/Thesis/Thesis_code/PURA/07_Differential_binding/"
+
+# binding sites
+###################
+bs_endo <- readRDS("~/PURA/Molitor-et-al-2022/binding_sites_characterized.rds") %>%
+  makeGRangesFromDataFrame(., keep.extra.columns = T)
+
+bs_oe <- readRDS("~/Thesis/Thesis_code/PURA/01_binding_site_definition_oePURA/bs_oe.rds")
+
+bs_flag <- readRDS("~/Thesis/Thesis_code/PURA/02_binding_site_definition_flagPURA/bs_flag.rds")
+
+# bw paths
+##################
+
+# oe
+raw_path <- "~/PURA/01_raw_data/oe-imb_koenig_2019_11_koenig_iCLIP_PURA___v2uniqMD/"
+oe_bw_1_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample1.v2uniqMD.duprm.plus.bw")
+oe_bw_1_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample1.v2uniqMD.duprm.minus.bw")
+
+oe_bw_2_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample2.v2uniqMD.duprm.plus.bw")
+oe_bw_2_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample2.v2uniqMD.duprm.minus.bw")
+
+oe_bw_3_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample3.v2uniqMD.duprm.plus.bw")
+oe_bw_3_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample3.v2uniqMD.duprm.minus.bw")
+
+oe_bw_4_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample4.v2uniqMD.duprm.plus.bw")
+oe_bw_4_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample4.v2uniqMD.duprm.minus.bw")
+
+# flag
+raw_path <- "~/PURA/01_raw_data/PURA_NPC_and_FLAG/imb_koenig_2020_17_koenig_iCLIP_PURA/"
+fl_bw_1_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.plus.bw")
+fl_bw_1_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.minus.bw")
+
+fl_bw_2_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag6.v2uniqMD.duprm.plus.bw")
+fl_bw_2_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.minus.bw")
+
+# endo
+ed_bw_1_plus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_1.v2uniqMD.duprm.plus.bw"
+ed_bw_1_minus_path <- 
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_1.v2uniqMD.duprm.minus.bw"
+
+ed_bw_2_plus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_2.v2uniqMD.duprm.plus.bw"
+ed_bw_2_minus_path  <- 
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_2.v2uniqMD.duprm.minus.bw"
+
+ed_bw_3_plus_path  <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_3.v2uniqMD.duprm.plus.bw"
+ed_bw_3_minus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_3.v2uniqMD.duprm.minus.bw"
+
+ed_bw_4_plus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_7.v2uniqMD.duprm.plus.bw"
+ed_bw_4_minus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_7.v2uniqMD.duprm.minus.bw"
+
+
+
+```
+
+# Merge previous binding sites
+
+```{r}
+# make colData
+###############
+
+# endo
+colData_endo <- data.frame(
+    name = "endo",
+    id = c(1:4),
+    condition = factor(c("endo", "endo", "endo", "endo"),
+                       levels = c("endo")),
+    clPlus = c(ed_bw_1_plus_path, ed_bw_2_plus_path, ed_bw_3_plus_path, ed_bw_4_plus_path),
+    clMinus = c(ed_bw_1_minus_path, ed_bw_2_minus_path, ed_bw_3_minus_path, ed_bw_4_minus_path))
+
+# oe
+colData_oe <- data.frame(
+    name = "oe",
+    id = c(1:4),
+    condition = factor(c("oe", "oe", "oe", "oe"),
+                       levels = c("oe")),
+    clPlus = c(oe_bw_1_plus_path, oe_bw_2_plus_path, oe_bw_3_plus_path, oe_bw_4_plus_path),
+    clMinus = c(oe_bw_1_minus_path, oe_bw_2_minus_path, oe_bw_3_minus_path, oe_bw_4_minus_path))
+
+
+# flag
+colData_flag <- data.frame(
+    name = "flag",
+    id = c(1:2),
+    condition = factor(c("flag", "flag"),
+                       levels = c("flag")),
+    clPlus = c(fl_bw_1_plus_path, fl_bw_2_plus_path),
+    clMinus = c(fl_bw_1_minus_path, fl_bw_2_minus_path)  )
+```
+
+
+```{r}
+
+# make BDS objects
+#######################
+
+bds_endo <- BSFDataSetFromBigWig(ranges = bs_endo, meta = colData_endo)
+bds_oe <- BSFDataSetFromBigWig(ranges = bs_oe, meta = colData_oe)
+bds_flag <- BSFDataSetFromBigWig(ranges = bs_flag, meta = colData_flag)
+
+saveRDS(bds_endo, paste0(outpath, "bds_endo.rds"))
+
+# merge BDS
+##################
+
+bds_merge <- combineBSF(list(bds_endo, bds_oe, bds_flag))
+
+r <- getRanges(bds_merge)
+
+NROW(r)
+
+# merges of 2 for diff
+###################
+
+colData_endo_oe <- data.frame(
+    name = "endo_oe",
+    id = c(1:8),
+    condition = factor(c("endo", "endo", "endo", "endo", "oe", "oe", "oe", "oe"),
+                       levels = c("endo", "oe")),
+    clPlus = c(ed_bw_1_plus_path, ed_bw_2_plus_path, ed_bw_3_plus_path, ed_bw_4_plus_path, 
+               oe_bw_1_plus_path, oe_bw_2_plus_path, oe_bw_3_plus_path, oe_bw_4_plus_path),
+    clMinus = c(ed_bw_1_minus_path, ed_bw_2_minus_path, ed_bw_3_minus_path, ed_bw_4_minus_path, 
+                oe_bw_1_minus_path, oe_bw_2_minus_path, oe_bw_3_minus_path, oe_bw_4_minus_path))
+
+colData_oe_flag <- data.frame(
+    name = "flag_oe",
+    id = c(1:6),
+    condition = factor(c("flag", "flag", "oe", "oe", "oe", "oe"),
+                       levels = c("flag", "oe")),
+    clPlus = c(fl_bw_1_plus_path, fl_bw_2_plus_path,
+               oe_bw_1_plus_path, oe_bw_2_plus_path, oe_bw_3_plus_path, oe_bw_4_plus_path
+               ),
+    clMinus = c(fl_bw_1_minus_path, fl_bw_2_minus_path,
+                oe_bw_1_minus_path, oe_bw_2_minus_path, oe_bw_3_minus_path, oe_bw_4_minus_path
+                ))
+
+bds_merge1 <- BSFDataSetFromBigWig(ranges = r, meta = colData_endo_oe)
+bds_merge2 <- BSFDataSetFromBigWig(ranges = r, meta = colData_oe_flag)
+
+  
+saveRDS(bds_merge1, paste0(outpath, "bds_merge_endo_oe.rds"))
+saveRDS(bds_merge2, paste0(outpath, "bds_merge_flag_oe.rds"))
+
+```
+
+```{r}
+sessionInfo()
+
+```
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,278 @@
+---
+title: "Differential binding of the three PURA HeLa iCLIPs - 1 merge binding sites "
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("~/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+```{r, eval = FALSE}
+install.packages("ggplot2")
+install.packages("ggpubr")
+
+BiocManager::install("BindingSiteFinder")
+```
+
+```{r libraries, include=FALSE}
+library(BindingSiteFinder)
+library(dplyr)
+library(GenomicFeatures)
+
+```
+
+
+# Input
+
+
+```{r}
+# path for output
+outpath <- "~/Thesis/Thesis_code/PURA/07_Differential_binding/"
+
+# binding sites
+###################
+bs_endo <- readRDS("~/PURA/Molitor-et-al-2022/binding_sites_characterized.rds") %>%
+  makeGRangesFromDataFrame(., keep.extra.columns = T)
+
+# bs_oe <- readRDS("~/Thesis/Thesis_code/PURA/01_binding_site_definition_oePURA/bs_oe.rds")
+# 
+# bs_flag <- readRDS("~/Thesis/Thesis_code/PURA/02_binding_site_definition_flagPURA/bs_flag.rds")
+
+
+# pureclip sites
+###################
+pc_oe <- rtracklayer::import.bedGraph("~/PURA/02_R_new_pip/01-BS_def/01-BS_def_oe/PureCLIP/peakcalling_pura_oe_pip2_sites.bed", )
+pc_flag <- rtracklayer::import.bedGraph("~/PURA/01_raw_data/PURA_NPC_and_FLAG/pureclip_flag/peakcalling_pura_flag_sites.bed")
+
+#clean up columns
+pc_oe  <- as.data.frame(pc_oe ) %>% makeGRangesFromDataFrame(keep.extra.columns = T)
+pc_oe$NA..2 <- NULL
+pc_oe$score <- pc_oe$NA.
+pc_oe$NA. <- NULL
+strand(pc_oe) <- pc_oe$NA..1
+pc_oe$NA..1 <- NULL
+pc_oe$round_score <- round(pc_oe$score, digits = 1)
+pc_oe <- keepStandardChromosomes(pc_oe, pruning.mode = "coarse")
+
+pc_flag  <- as.data.frame(pc_flag ) %>% makeGRangesFromDataFrame(keep.extra.columns = T)
+pc_flag$NA..2 <- NULL
+pc_flag$score <- pc_flag$NA.
+pc_flag$NA. <- NULL
+strand(pc_flag) <- pc_flag$NA..1
+pc_flag$NA..1 <- NULL
+pc_flag$round_score <- round(pc_flag$score, digits = 1)
+pc_flag <- keepStandardChromosomes(pc_flag, pruning.mode = "coarse")
+
+# bw paths
+##################
+
+# oe
+raw_path <- "~/PURA/01_raw_data/oe-imb_koenig_2019_11_koenig_iCLIP_PURA___v2uniqMD/"
+oe_bw_1_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample1.v2uniqMD.duprm.plus.bw")
+oe_bw_1_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample1.v2uniqMD.duprm.minus.bw")
+
+oe_bw_2_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample2.v2uniqMD.duprm.plus.bw")
+oe_bw_2_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample2.v2uniqMD.duprm.minus.bw")
+
+oe_bw_3_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample3.v2uniqMD.duprm.plus.bw")
+oe_bw_3_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample3.v2uniqMD.duprm.minus.bw")
+
+oe_bw_4_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample4.v2uniqMD.duprm.plus.bw")
+oe_bw_4_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample4.v2uniqMD.duprm.minus.bw")
+
+# flag
+raw_path <- "~/PURA/01_raw_data/PURA_NPC_and_FLAG/imb_koenig_2020_17_koenig_iCLIP_PURA/"
+fl_bw_1_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.plus.bw")
+fl_bw_1_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.minus.bw")
+
+fl_bw_2_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag6.v2uniqMD.duprm.plus.bw")
+fl_bw_2_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.minus.bw")
+
+# gene annotation
+####################
+annotation <- readRDS("~/PURA/Molitor-et-al-2022/annotation.rds")
+anno_txdb <- makeTxDbFromGRanges(annotation)
+
+gns = genes(anno_txdb)
+gns$gene_id = sub("\\..*", "", gns$gene_id)
+idx = match(gns$gene_id, annotation$gene_id)
+elementMetadata(gns) = cbind(elementMetadata(gns), elementMetadata(annotation)[idx,])
+names(gns) = sub("\\..*", "", names(gns))
+meta = data.frame(gene_id = gns$gene_id, gene_name = gns$gene_name, gene_type = gns$gene_type)
+mcols(gns) = meta
+gns$geneID = names(gns)
+
+cdseq = cds(anno_txdb)
+intrns = unlist(intronsByTranscript(anno_txdb))
+utrs3 = unlist(threeUTRsByTranscript(anno_txdb))
+utrs5 = unlist(fiveUTRsByTranscript(anno_txdb))
+trl = GRangesList(CDS = cdseq, Intron = intrns, UTR3 = utrs3, UTR5 = utrs5)
+
+hir <- c("UTR3", "UTR5", "CDS", "Intron")
+
+```
+
+
+# Make new binding sites
+
+
+```{r}
+# make colData
+###############
+
+# oe
+colData_oe <- data.frame(
+    name = "oe",
+    id = c(1:4),
+    condition = factor(c("oe", "oe", "oe", "oe"),
+                       levels = c("oe")),
+    clPlus = c(oe_bw_1_plus_path, oe_bw_2_plus_path, oe_bw_3_plus_path, oe_bw_4_plus_path),
+    clMinus = c(oe_bw_1_minus_path, oe_bw_2_minus_path, oe_bw_3_minus_path, oe_bw_4_minus_path))
+
+
+# flag
+colData_flag <- data.frame(
+    name = "flag",
+    id = c(1:2),
+    condition = factor(c("flag", "flag"),
+                       levels = c("flag")),
+    clPlus = c(fl_bw_1_plus_path, fl_bw_2_plus_path),
+    clMinus = c(fl_bw_1_minus_path, fl_bw_2_minus_path)  )
+```
+
+```{r}
+######################
+# Binding sites oe
+#######################
+
+bds_oe <- BSFDataSetFromBigWig(ranges = pc_oe, meta = colData_oe)
+# bds_flag <- BSFDataSetFromBigWig(ranges = pc_flag, meta = colData_flag)
+
+
+# oe binding sites with filter
+bds_oe_filt = BSFind(object = bds_oe, anno.genes = gns, anno.transcriptRegionList = trl,
+                cutoff.globalFilter = 0.1,
+              veryQuiet = TRUE, bsSize = 5,
+              overlaps.rule.TranscriptRegions = hir)
+
+
+processingStepsFlowChart(bds_oe_filt)
+pureClipGlobalFilterPlot(bds_oe_filt)
+estimateBsWidthPlot(bds_oe_filt)
+mergeCrosslinkDiagnosticsPlot(bds_oe_filt)
+reproducibilityFilterPlot(bds_oe_filt)
+reproducibilitySamplesPlot(bds_oe_filt)
+
+saveRDS(bds_oe_filt, paste0(outpath, "bds_oe_filt.rds"))
+
+# oe binding sites no filter
+bds_oe_nofilt = BSFind(object = bds_oe, anno.genes = gns, anno.transcriptRegionList = trl,
+                cutoff.globalFilter = 0,
+                cutoff.geneWiseFilter = 0,
+              veryQuiet = TRUE, bsSize = 5,
+              overlaps.rule.TranscriptRegions = hir)
+
+
+processingStepsFlowChart(bds_oe_nofilt)
+pureClipGlobalFilterPlot(bds_oe_nofilt)
+mergeCrosslinkDiagnosticsPlot(bds_oe_nofilt)
+reproducibilitySamplesPlot(bds_oe_nofilt)
+
+
+blacklist_oe <- subsetByOverlaps( getRanges(bds_oe_nofilt), getRanges(bds_oe_filt), invert = T, type = "any")
+saveRDS(blacklist_oe, paste0(outpath, "blacklist_oe.rds"))
+
+
+```
+
+```{r}
+######################
+# Binding sites flag
+#######################
+
+bds_flag <- BSFDataSetFromBigWig(ranges = pc_flag, meta = colData_flag)
+# bds_flag <- BSFDataSetFromBigWig(ranges = pc_flag, meta = colData_flag)
+
+
+# oe binding sites with filter
+bds_flag_filt = BSFind(object = bds_flag, anno.genes = gns, anno.transcriptRegionList = trl,
+              veryQuiet = TRUE, bsSize = 5,
+              overlaps.rule.TranscriptRegions = hir)
+
+
+processingStepsFlowChart(bds_flag_filt)
+pureClipGlobalFilterPlot(bds_flag_filt)
+estimateBsWidthPlot(bds_flag_filt)
+mergeCrosslinkDiagnosticsPlot(bds_flag_filt)
+reproducibilityFilterPlot(bds_flag_filt)
+reproducibilitySamplesPlot(bds_flag_filt)
+
+saveRDS(bds_flag_filt, paste0(outpath, "bds_flag_filt.rds"))
+
+
+```
+
+```{r eval=F}
+# error for Mirko
+
+# oe binding sites with filter
+bds_oe_filt = BSFind(object = bds_oe, anno.genes = gns, anno.transcriptRegionList = trl,
+                cutoff.globalFilter = 0.1,
+              veryQuiet = TRUE, bsSize = 5)
+
+
+estimateBsWidthPlot(bds_oe_filt)
+
+
+# oe binding sites no filter
+bds_oe_nofilt = BSFind(object = bds_oe, anno.genes = gns, anno.transcriptRegionList = trl,
+                cutoff.globalFilter = 0,
+                cutoff.geneWiseFilter = 0,
+              veryQuiet = TRUE, bsSize = 5)
+
+estimateBsWidthPlot(bds_oe_nofilt)
+
+```
+
+```{r}
+sessionInfo()
+
+```
+

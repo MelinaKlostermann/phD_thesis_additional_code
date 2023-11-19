@@ -1,0 +1,213 @@
+---
+title: "Differential binding of the three PURA HeLa iCLIPs - 2 endo vs oe "
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("~/R_general_functions/theme_thesis.R")
+#theme_set(theme_thesis())
+```
+
+```{r, eval = FALSE}
+install.packages("ggplot2")
+install.packages("dplyr")
+install.packages("ggrastr")
+install.packages("ggpointdensity")
+install.packages("viridis")
+
+BiocManager::install("BindingSiteFinder")
+BiocManager::install("GenomicFeatures")
+BiocManager::install("DESeq2")
+```
+
+
+```{r libraries}
+library(BindingSiteFinder)
+library(dplyr)
+library(GenomicFeatures)
+
+```
+
+# Input
+
+```{r}
+# path for output
+outpath <- "~/Thesis/Thesis_code/PURA/07_Differential_binding/"
+
+bds <- readRDS(paste0(outpath, "bds_merge_endo_oe.rds"))
+
+bds
+
+
+# gene annotation
+annotation <- readRDS("~/PURA/Molitor-et-al-2022/annotation.rds")
+anno_txdb <- makeTxDbFromGRanges(annotation)
+
+gns = genes(anno_txdb)
+gns$gene_id = sub("\\..*", "", gns$gene_id)
+idx = match(gns$gene_id, annotation$gene_id)
+elementMetadata(gns) = cbind(elementMetadata(gns), elementMetadata(annotation)[idx,])
+names(gns) = sub("\\..*", "", names(gns))
+meta = data.frame(gene_id = gns$gene_id, gene_name = gns$gene_name, gene_type = gns$gene_type)
+mcols(gns) = meta
+gns$geneID = names(gns)
+
+cdseq = cds(anno_txdb)
+intrns = unlist(intronsByTranscript(anno_txdb))
+utrs3 = unlist(threeUTRsByTranscript(anno_txdb))
+utrs5 = unlist(fiveUTRsByTranscript(anno_txdb))
+trl = GRangesList(CDS = cdseq, Intron = intrns, UTR3 = utrs3, UTR5 = utrs5)
+
+# saveRDS(trl, paste0(outpath, "transcript_region_list_test.rds"))
+
+```
+
+# Assign genes and regions
+```{r}
+bds <- assignToGenes(bds, anno.genes = gns, overlaps = "frequency")
+
+# saveRDS(bds, paste0(outpath, "bds_test.rds"))
+#bds <- assignToTranscriptRegions(bds, anno.transcriptRegionList = trl, overlaps.rule = c("UTR3", "UTR5", "CDS", "Intron"))
+
+# bds <- assignToTranscriptRegions(bds, anno.transcriptRegionList = trl, overlaps = "frequency")
+# getRanges(bds)
+
+```
+
+# Calculate background
+
+```{r}
+# compute the binding site and background coverage
+bds = calculateBsBackground(bds, anno.genes = gns)
+
+# filter background 
+bds = filterBsBackground(bds,
+                          minCounts.cutoff = 1000,
+                         balanceBackground.cutoff.bs = 0.2,
+                         balanceBackground.cutoff.bg = 0.8)
+
+plotBsBackgroundFilter(bds, filter = "minCounts")
+plotBsBackgroundFilter(bds, filter = "balanceBackground")
+plotBsBackgroundFilter(bds, filter = "balanceCondition")
+
+
+```
+
+# Caluclate Changes
+
+```{r}
+bds <- calculateBsFoldChange(bds)
+
+```
+
+
+
+# Changes
+
+## binding changes
+
+```{r}
+
+plotBsMA(bds, what = "bg")
+plotBsVolcano(bds, what = "bg")
+```
+
+## background changes
+
+```{r}
+plotBsMA(bds, what = "bs")
+plotBsVolcano(bds, what = "bs")
+
+```
+
+```{r}
+bs <- getRanges(bds) %>% as.data.frame()
+```
+
+Number of binding sites:
+`r nrow(bs)`
+
+Number of sig changing binding sites:
+`r bs %>% subset(bs$bs.padj < 0.01) %>% nrow(.)`
+
+Number of sig changing background:
+`r bs %>% subset(bs$bg.padj < 0.01) %>% nrow(.)`
+
+## binding vs background changes
+
+```{r}
+bs <- bs %>% mutate(bs, bin = cut(bg.log2FoldChange, breaks = seq(-3,3, 0.5)))
+
+ggplot(bs, aes(x = bin, y = bs.log2FoldChange))+
+  geom_violin()+
+  geom_boxplot(width = 0.25)
+
+```
+
+
+
+
+
+# Save file
+
+```{r}
+# rds
+saveRDS(bs, paste0(outpath, "merged_bs_diff_endo_oe_res.rds"))
+
+# beds
+up_bs <- bs %>% subset((bs$bs.padj < 0.01) & (bs$bs.log2FoldChange > 0)) %>%
+  makeGRangesFromDataFrame(.)
+
+down_bs <- bs %>% subset((bs$bs.padj < 0.01) & (bs$bs.log2FoldChange < 0))%>%
+  makeGRangesFromDataFrame(.)
+
+up_bg <- bs %>% subset((bs$bg.padj < 0.01) & (bs$bg.log2FoldChange > 0)) %>%
+  makeGRangesFromDataFrame(.)
+
+down_bg <- bs %>% subset((bs$bg.padj < 0.01) & (bs$bg.log2FoldChange < 0))%>%
+  makeGRangesFromDataFrame(.)
+
+rtracklayer::export.bed(up_bs, paste0("merged_bs_upbs_oevsendo.bed"))
+rtracklayer::export.bed(down_bs, paste0("merged_bs_downbs_oevsendo.bed"))
+rtracklayer::export.bed(up_bg, paste0("merged_bs_upbg_oevsendo.bed"))
+rtracklayer::export.bed(down_bg, paste0("merged_bs_downbg_oevsendo.bed"))
+
+```

@@ -1,0 +1,226 @@
+---
+title: "Differential binding of the three PURA HeLa iCLIPs - 5 new diff with blacklist from oe under filter "
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+  - name: Melina Klostermann
+format: 
+  html:
+    code-fold: true
+    code-overflow: scroll
+    code-summary: "Show code"
+    code-tools: true
+    code-line-numbers: true
+    
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-expand: false
+    number-sections: true
+    
+    theme: sandstone
+    fontsize: 11pt
+    linestretch: 1.5
+        
+    fig-format: svg
+    cap-location: margin
+    crossref:
+      fig-title: Fig
+    
+    embed-resources: true
+    link-external-newwindow: true
+    smooth-scroll: true
+    
+    execute:
+      echo: true
+      warning: false
+---
+
+
+
+```{r setup, include=FALSE}
+require("knitr")
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, cache=TRUE, tidy.opts=list(width.cutoff=80))
+
+library(ggplot2) 
+source("~/R_general_functions/theme_thesis.R")
+theme_set(theme_thesis())
+```
+
+```{r, eval = FALSE}
+install.packages("ggplot2")
+install.packages("ggpubr")
+
+BiocManager::install("BindingSiteFinder")
+```
+
+
+```{r libraries, include=FALSE}
+library(BindingSiteFinder)
+library(dplyr)
+library(GenomicFeatures)
+
+```
+
+# Input
+
+```{r}
+# path for output
+outpath <- "~/Thesis/Thesis_code/PURA/07_Differential_binding/"
+
+# load files
+bds_endo <- readRDS(paste0(outpath, "bds_endo.rds"))
+bds_oe<- readRDS(paste0(outpath, "bds_oe_filt.rds"))
+bds_flag <- readRDS(paste0(outpath, "bds_flag_filt.rds"))
+blacklist_oe <- readRDS(paste0(outpath, "blacklist_oe.rds"))
+
+# bw paths
+##################
+
+# oe
+raw_path <- "~/PURA/01_raw_data/oe-imb_koenig_2019_11_koenig_iCLIP_PURA___v2uniqMD/"
+oe_bw_1_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample1.v2uniqMD.duprm.plus.bw")
+oe_bw_1_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample1.v2uniqMD.duprm.minus.bw")
+
+oe_bw_2_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample2.v2uniqMD.duprm.plus.bw")
+oe_bw_2_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample2.v2uniqMD.duprm.minus.bw")
+
+oe_bw_3_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample3.v2uniqMD.duprm.plus.bw")
+oe_bw_3_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample3.v2uniqMD.duprm.minus.bw")
+
+oe_bw_4_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample4.v2uniqMD.duprm.plus.bw")
+oe_bw_4_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2019_11_sample4.v2uniqMD.duprm.minus.bw")
+
+# flag
+raw_path <- "~/PURA/01_raw_data/PURA_NPC_and_FLAG/imb_koenig_2020_17_koenig_iCLIP_PURA/"
+fl_bw_1_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.plus.bw")
+fl_bw_1_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.minus.bw")
+
+fl_bw_2_plus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag6.v2uniqMD.duprm.plus.bw")
+fl_bw_2_minus_path <- paste0(raw_path,"bw/all/DR/imb_koenig_2020_17_flag4.v2uniqMD.duprm.minus.bw")
+
+# endo
+ed_bw_1_plus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_1.v2uniqMD.duprm.plus.bw"
+ed_bw_1_minus_path <- 
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_1.v2uniqMD.duprm.minus.bw"
+
+ed_bw_2_plus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_2.v2uniqMD.duprm.plus.bw"
+ed_bw_2_minus_path  <- 
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_2.v2uniqMD.duprm.minus.bw"
+
+ed_bw_3_plus_path  <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_3.v2uniqMD.duprm.plus.bw"
+ed_bw_3_minus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_3.v2uniqMD.duprm.minus.bw"
+
+ed_bw_4_plus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_7.v2uniqMD.duprm.plus.bw"
+ed_bw_4_minus_path <-
+  "~/PURA/01_raw_data/PURA_endo/imb_koenig_2020_07_koenig_iCLIP_PURA_endogene/bw/all/DR/imb_koenig_2020_07_PURAendo_7.v2uniqMD.duprm.minus.bw"
+
+# gene annotation
+####################
+annotation <- readRDS("~/PURA/Molitor-et-al-2022/annotation.rds")
+anno_txdb <- makeTxDbFromGRanges(annotation)
+
+gns = genes(anno_txdb)
+gns$gene_id = sub("\\..*", "", gns$gene_id)
+idx = match(gns$gene_id, annotation$gene_id)
+elementMetadata(gns) = cbind(elementMetadata(gns), elementMetadata(annotation)[idx,])
+names(gns) = sub("\\..*", "", names(gns))
+meta = data.frame(gene_id = gns$gene_id, gene_name = gns$gene_name, gene_type = gns$gene_type)
+mcols(gns) = meta
+gns$geneID = names(gns)
+
+```
+
+# Merge binding sites
+
+```{r eval=F}
+# merge BDS
+##################
+
+bds_merge <- combineBSF(list(bds_endo, bds_oe, bds_flag), combine.bsSize = 5)
+
+r <- getRanges(bds_merge)
+
+# merges of 2 for diff
+###################
+
+colData_endo_oe <- data.frame(
+    name = "endo_oe",
+    id = c(1:8),
+    condition = factor(c("endo", "endo", "endo", "endo", "oe", "oe", "oe", "oe"),
+                       levels = c("endo", "oe")),
+    clPlus = c(ed_bw_1_plus_path, ed_bw_2_plus_path, ed_bw_3_plus_path, ed_bw_4_plus_path, 
+               oe_bw_1_plus_path, oe_bw_2_plus_path, oe_bw_3_plus_path, oe_bw_4_plus_path),
+    clMinus = c(ed_bw_1_minus_path, ed_bw_2_minus_path, ed_bw_3_minus_path, ed_bw_4_minus_path, 
+                oe_bw_1_minus_path, oe_bw_2_minus_path, oe_bw_3_minus_path, oe_bw_4_minus_path))
+
+colData_oe_flag <- data.frame(
+    name = "flag_oe",
+    id = c(1:6),
+    condition = factor(c("flag", "flag", "oe", "oe", "oe", "oe"),
+                       levels = c("flag", "oe")),
+    clPlus = c(fl_bw_1_plus_path, fl_bw_2_plus_path,
+               oe_bw_1_plus_path, oe_bw_2_plus_path, oe_bw_3_plus_path, oe_bw_4_plus_path
+               ),
+    clMinus = c(fl_bw_1_minus_path, fl_bw_2_minus_path,
+                oe_bw_1_minus_path, oe_bw_2_minus_path, oe_bw_3_minus_path, oe_bw_4_minus_path
+                ))
+
+bds_merge1 <- BSFDataSetFromBigWig(ranges = r, meta = colData_endo_oe)
+bds_merge2 <- BSFDataSetFromBigWig(ranges = r, meta = colData_oe_flag)
+
+  
+saveRDS(bds_merge1, paste0(outpath, "bds_merge_endo_oe_newdef.rds"))
+saveRDS(bds_merge2, paste0(outpath, "bds_merge_flag_oe_newdef.rds"))
+
+```
+
+
+# Diff binding endo oe with blacklist (oe bs under filter)
+
+```{r}
+
+bds_merge1 <- readRDS( paste0(outpath, "bds_merge_endo_oe_newdef.rds"))
+
+# remove endo bs from blacklist
+blacklist_oe <- subsetByOverlaps(blacklist_oe, getRanges(bds_endo), invert = T, type ="any")
+
+
+# calculate and filter background
+bds_merge1 =  assignToGenes(bds_merge1, anno.genes = gns, overlaps = "frequency")
+
+bds_merge1 = calculateBsBackground(bds_merge1, anno.genes = gns, blacklist = blacklist_oe, generate.geneID.blacklist = T)
+
+
+```
+
+
+
+```{r}
+bds = filterBsBackground(bds,
+                          minCounts.cutoff = 1000,
+                         balanceBackground.cutoff.bs = 0.2,
+                         balanceBackground.cutoff.bg = 0.8)
+
+plotBsBackgroundFilter(bds, filter = "minCounts")
+plotBsBackgroundFilter(bds, filter = "balanceBackground")
+plotBsBackgroundFilter(bds, filter = "balanceCondition")
+
+```
+
+## binding changes
+
+```{r}
+bds <- calculateBsFoldChange(bds)
+
+plotBsMA(bds, what = "bg")
+plotBsVolcano(bds, what = "bg")
+```
+
+```{r}
+sessionInfo()
+```
