@@ -68,7 +68,6 @@ out <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/07_D
 
 
 ```{r}
-
 bs_merge_prefilter <- readRDS("/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/06_Differential_binding/bds_merge_endo_oe_ranges.rds") 
 names(bs_merge_prefilter) <- 1:NROW(bs_merge_prefilter)
 
@@ -99,6 +98,14 @@ bs_merge <- bs_merge %>% mutate(
 
 
 nrow(bs_merge)
+
+# tables
+write.csv(as.data.frame(bs_merge), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S3_Differential_binding_FLAG-PURA_IH-AB_vs_endogenous_PURA.csv")
+
+write.csv(as.data.frame(bs_merge2), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S4_Differential_binding_FLAG-PURA_FL-AB_vs_endogenous_PURA.csv")
+
+write.csv(as.data.frame(bs_merge4), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S5_Differential_binding_FLAG-PURA_IH-AB_2_vs_2.csv")
+
 
 ```
 

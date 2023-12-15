@@ -821,6 +821,8 @@ bs_without_region <- binding_sites[-queryHits(findOverlaps(binding_sites, bindin
 ```{r}
 saveRDS(binding_sites_with_regions,  paste0(output_path , "bs_flag.rds"))
 
+write.csv(as.data.frame(binding_sites_with_regions), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S2_FLAG-PURA_FL-AB_binding_sites.csv")
+
 ```
 
 # Session Info
