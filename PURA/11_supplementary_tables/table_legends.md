@@ -1,1 +1,19 @@
+# Supplementary Table S1
 
+Table of PURA binding sites from the FLAG-PURA IH-AB data set. Given are the genomic position (seqnames, start, end, strand) together with the width of the binding site, the binding score, together with the number of crosslinks per replicate (clp_rep1, clp_rep2, clp_rep3, clp_rep4), whether this replicate supports the binding site sufficiently (cl1_overThresh, cl2_overThresh, cl3_overThresh, cl4_overThresh) and some information on the bound transcript (gene_id, gene_type, gene_name, type).
+
+# Supplementary Table S2
+
+Table of PURA binding sites from the FLAG-PURA FL-AB data set. Given are the genomic position (seqnames, start, end, strand) together with the width of the binding site, the binding score, together with the number of crosslinks per replicate (clp_rep1, clp_rep2, clp_rep3, clp_rep4), whether this replicate supports the binding site sufficiently (cl1_overThresh, cl2_overThresh, cl3_overThresh, cl4_overThresh) and some information on the bound transcript (gene_id, gene_type, gene_name, type).
+
+# Supplementary Table S3
+
+Table of differential binding analysis from FLAG-PURA IH-AB vs endogenous PURA. Given are the genomic position (seqnames, start, end, strand) together with the width of the binding site, the binding score, some information on the bound transcript (gene_id, gene_type, gene_name, type), together with the number of crosslinks per binding site of the gene for each replicate (counts.bs.1_endo, counts.bs2_endo, counts.bs.3_endo, counts.bs.4_endo, counts.bs.1_oe, counts.bs2_oe, counts.bs.3_oe, counts.bs.4_oe) and in the background (counts.bg.1_endo, counts.bg2_endo, counts.bg.3_endo, counts.bg.4_endo, counts.bg.1_oe, counts.bg2_oe, counts.bg.3_oe, counts.bg.4_oe). Statistics are given for the binding sites (bs.baseMean, bs.log2FoldChange, bs.lfcSE, bs.stat, bs.pvalue, bs.padj) and for the background distribution per gene (bg.baseMean, bg.log2FoldChange, bg.lfcSE, bg.stat, bg.pvalue, bg.padj).
+
+# Supplementary Table S4
+
+Table of differential binding analysis from FLAG-PURA FL-AB vs endogenous PURA. Given are the genomic position (seqnames, start, end, strand) together with the width of the binding site, the binding score, some information on the bound transcript (gene_id, gene_type, gene_name, type), together with the number of crosslinks per binding site of the gene for each replicate (counts.bs.1_endo, counts.bs2_endo, counts.bs.3_endo, counts.bs.4_endo, counts.bs.1_oe, counts.bs2_oe, counts.bs.3_oe, counts.bs.4_oe) and in the background (counts.bg.1_endo, counts.bg2_endo, counts.bg.3_endo, counts.bg.4_endo, counts.bg.1_oe, counts.bg2_oe, counts.bg.3_oe, counts.bg.4_oe). Statistics are given for the binding sites (bs.baseMean, bs.log2FoldChange, bs.lfcSE, bs.stat, bs.pvalue, bs.padj) and for the background distribution per gene (bg.baseMean, bg.log2FoldChange, bg.lfcSE, bg.stat, bg.pvalue, bg.padj).
+
+# Supplementary Table S5
+
+Table of differential binding analysis from FLAG-PURA IH-AB replicate 1&2 vs replicate 3&4. Given are the genomic position (seqnames, start, end, strand) together with the width of the binding site, the binding score, some information on the bound transcript (gene_id, gene_type, gene_name, type), together with the number of crosslinks per binding site of the gene for each replicate (counts.bs.1_endo, counts.bs2_endo, counts.bs.3_endo, counts.bs.4_endo, counts.bs.1_oe, counts.bs2_oe, counts.bs.3_oe, counts.bs.4_oe) and in the background (counts.bg.1_endo, counts.bg2_endo, counts.bg.3_endo, counts.bg.4_endo, counts.bg.1_oe, counts.bg2_oe, counts.bg.3_oe, counts.bg.4_oe). Statistics are given for the binding sites (bs.baseMean, bs.log2FoldChange, bs.lfcSE, bs.stat, bs.pvalue, bs.padj) and for the background distribution per gene (bg.baseMean, bg.log2FoldChange, bg.lfcSE, bg.stat, bg.pvalue, bg.padj).
