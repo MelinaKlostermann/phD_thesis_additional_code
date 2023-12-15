@@ -167,6 +167,8 @@ BS_strongest_per_gene <- BS %>%
   arrange(desc(score)) %>%
   dplyr::slice(1)
 
+table(BS_strongest_per_gene$region)
+
 ggplot(BS_strongest_per_gene, aes(x = region))+
   geom_bar()+
   theme_paper()

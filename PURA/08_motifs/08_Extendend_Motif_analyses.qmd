@@ -73,7 +73,7 @@ library(purrr)
 library(ggseqlogo)
 
 
-outpath <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/09_motifs/"
+outpath <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/08_motifs/"
 
 ```
 
@@ -371,6 +371,7 @@ stream <- readRDS(paste0(outpath, "steam.rds"))
 
 names_test_ranges
 stream %>% map(., ~filter(.x, pval < 0.05) %>% to_list() %>% view_motifs())
+
 
 pdf(paste0(outpath, "top_logos_stream.pdf"), width = 2, height = 10)
 stream[[3]] %>% filter(., pval < 0.01) %>% to_list() %>% view_motifs()

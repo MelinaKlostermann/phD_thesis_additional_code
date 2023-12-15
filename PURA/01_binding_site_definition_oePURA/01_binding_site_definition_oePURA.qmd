@@ -75,7 +75,7 @@ The following steps were performed in this order:
     + Comparison with old BS definition pipeline 
     
     
-2. Analysis of biniding behaviour
+2. Analysis of binding behaviour
 
     + Analysis of bound gene types 
     + Analysis of bound gene regions
@@ -1029,6 +1029,7 @@ bs_without_region <- binding_sites[-queryHits(findOverlaps(binding_sites, bindin
 
 ```{r}
 saveRDS(binding_sites_with_regions,  paste0(output_path , "bs_oe.rds"))
+write.csv(as.data.frame(binding_sites_with_regions), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S1_FLAG-PURA_IH-AB_binding_sites.csv")
 
 ```
 
