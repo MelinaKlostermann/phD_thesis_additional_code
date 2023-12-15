@@ -43,8 +43,8 @@ number of target genes found in any term; “geneset”, number of all genes bel
 to term; “overlap”, number of signature genes in geneset, “background”, number of
 background genes), the gene names of all hits per term (“hits") and the ratio of hits
 per term (“overlap”/”geneset”). Enrichment analysis was performed once for RNAs
-downregulated in PURA knockdown (n = 1752, FDR < 0.01, log2foldchange < 0) and
-once for RNAs upregulated in PURA knockdown (n = 1663, FDR < 0.01,
+downregulated in *PURA* knockdown (n = 1752, FDR < 0.01, log2foldchange < 0) and
+once for RNAs upregulated in *PURA* knockdown (n = 1663, FDR < 0.01,
 log2foldchange > 0), marked in the column ”Regulation in PURA KD/CTRL” as “down”
 and “up”, respectively.
 
@@ -59,7 +59,7 @@ number of target genes found in any term; “geneset”, number of all genes bel
 to term; “overlap”, number of signature genes in geneset, “background”, number of
 background genes), the gene names of all hits per term (“hits") and the ratio of hits
 per term (“overlap”/”geneset”). Enrichment analysis was performed once for RNAs
-downregulated in PURA knockdown (n = 1752, FDR < 0.01, log2foldchange < 0) and
-once for RNAs upregulated in PURA knockdown (n = 1663, FDR < 0.01,
+downregulated in *PURA* knockdown (n = 1752, FDR < 0.01, log2foldchange < 0) and
+once for RNAs upregulated in *PURA* knockdown (n = 1663, FDR < 0.01,
 log2foldchange > 0), marked in the column ”Regulation in PURA KD/CTRL” as “down”
 and “up”, respectively.
