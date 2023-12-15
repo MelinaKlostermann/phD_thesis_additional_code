@@ -20,22 +20,22 @@
 
 # Supplementary Table S6
 
-**Table of de novo motif prediction on all PURA binding sites by STREME.**
+**Table of *de novo* motif prediction on all PURA binding sites by STREME.**
 
 
 # Supplementary Table S7
 
-**Table of de novo motif prediction on 3'UTR PURA binding sites by STREME.**
+**Table of *de novo motif* prediction on 3'UTR PURA binding sites by STREME.**
 
 
 # Supplementary Table S8
 
-**Table of de novo motif prediction on CDS PURA binding sites by STREME.**
+**Table of *de novo* motif prediction on CDS PURA binding sites by STREME.**
 
 # Supplementary Table S9
 
 **Tables of all significantly enriched REACTOME** for the
-genes of the 3,415 differentially expressed RNAs in PURA knockdown. Functional
+genes of the 3,415 differentially expressed RNAs in *PURA* knockdown. Functional
 enrichment analysis is performed in R using the “hypergeometric” mode (FDR < 0.1)
 of the hypeR package (version 1.9.1) with all genes with at least one PURA crosslink
 event as background. Given are the test statistics from hypeR (pval; fdr; “signature”,
@@ -51,7 +51,7 @@ and “up”, respectively.
 # Supplementary Table S10
 
 **Tables of all significantly enriched GeneOntology (GO) cellular compartment terms** for the
-genes of the 3,415 differentially expressed RNAs in PURA knockdown. Functional
+genes of the 3,415 differentially expressed RNAs in *PURA* knockdown. Functional
 enrichment analysis is performed in R using the “hypergeometric” mode (FDR < 0.1)
 of the hypeR package (version 1.9.1) with all genes with at least one PURA crosslink
 event as background. Given are the test statistics from hypeR (pval; fdr; “signature”,
