@@ -54,7 +54,7 @@ library(hypeR)
 
 
 
-outpath <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_GeneOntology/"
+outpath <- "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/10_GeneOntology/"
 ``` 
 
 # Files
@@ -105,7 +105,7 @@ reactome_go_cust  = hyps_list[[1]]$data %>%
          generatio = overlap/geneset) %>%
   as.data.frame()
 
-xlsx::write.xlsx(reactome_go_cust, file =  paste0(outpath, "reactome_rnaseq_table.xlsx"))
+write.csv(as.data.frame(reactome_go_cust), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S9_REACTOME_terms_transcripts_changing_in_PURA_depletion.csv")
 
 reactome_go_cust <- reactome_go_cust[1:20,]
 
@@ -133,7 +133,7 @@ cc_go_cust  = hyps_list[[2]]$data %>%
          generatio = overlap/geneset) %>%
   as.data.frame()
 
-xlsx::write.xlsx(reactome_go_cust, file =  paste0(outpath, "go_cellular_components_rnaseq_table.xlsx"))
+write.csv(as.data.frame(cc_go_cust), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S10_GO_cellular_compartments_terms_transcripts_changing_in_PURA_depletion.csv")
 
 cc_go_cust <- cc_go_cust[1:20,]
 

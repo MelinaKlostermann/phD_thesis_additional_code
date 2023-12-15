@@ -369,6 +369,18 @@ saveRDS(stream, paste0(outpath, "steam.rds"))
 
 stream <- readRDS(paste0(outpath, "steam.rds"))
 
+all <- as.data.frame(stream[[3]])
+all <- apply(all,2,as.character)
+write.csv(all, "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S6_STREME_all_binding_sites.csv")
+
+utr <- as.data.frame(stream[[1]])
+utr <- apply(utr,2,as.character)
+write.csv(x = as.data.frame(utr), file = "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S7_STREME_3utr_binding_sites.csv")
+
+cds <- as.data.frame(stream[[2]])
+cds <- apply(cds,2,as.character)
+write.csv(as.data.frame(cds), "/Users/melinaklostermann/Documents/projects/Thesis/Thesis_code/PURA/11_supplementary_tables/S8_STREME_cds_binding_sites.csv")
+
 names_test_ranges
 stream %>% map(., ~filter(.x, pval < 0.05) %>% to_list() %>% view_motifs())
 
